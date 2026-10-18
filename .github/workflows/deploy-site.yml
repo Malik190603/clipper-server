@@ -6,14 +6,36 @@ on:
     paths: ["site/**"]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PROJECT: clipper-ku
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy ke Cloudflare Pages (clipper-ku)
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy site --project-name=clipper-ku --branch=main --commit-dirty=true
+      - name: Cari branch produksi proyek Pages
+        id: info
+        run: |
+          r=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PROJECT")
+          b=$(echo "$r" | jq -r '.result.production_branch // empty')
+          echo "branch=${b:-main}" >> "$GITHUB_OUTPUT"
+          echo "$r" | jq '{success, errors, production_branch: .result.production_branch, source: .result.source.type}' > /tmp/info.json || echo "$r" > /tmp/info.json
+          cat /tmp/info.json
+      - name: Deploy ke Cloudflare Pages
+        id: deploy
+        run: |
+          npx --yes wrangler@3 pages deploy site --project-name="$PROJECT" --branch="${{ steps.info.outputs.branch }}" --commit-dirty=true 2>&1 | tee /tmp/deploy.txt
+          exit ${PIPESTATUS[0]}
+      - name: Catat hasil deploy
+        if: always()
+        run: |
+          mkdir -p /tmp/log && cd /tmp/log
+          { echo "waktu: $(date -u)"; echo "branch: ${{ steps.info.outputs.branch }}"; echo "status: ${{ steps.deploy.outcome }}"; echo "--- info"; cat /tmp/info.json 2>/dev/null; echo "--- deploy"; tail -n 25 /tmp/deploy.txt 2>/dev/null; } > deploy-log.txt
+          git init -q && git checkout -q -b deploy-log && git add -A
+          git -c user.name=clipper-bot -c user.email=clipper-bot@users.noreply.github.com commit -q -m "log deploy"
+          git push -q --force "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" deploy-log

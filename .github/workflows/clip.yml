@@ -1,0 +1,149 @@
+name: clip
+run-name: clip-${{ inputs.id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        description: ID pekerjaan
+        required: true
+        type: string
+      url:
+        description: Link YouTube
+        required: true
+        type: string
+      clips:
+        description: 'Daftar klip JSON, contoh [[12.5,70],[300,360]]'
+        required: true
+        type: string
+      height:
+        description: Tinggi video maksimal
+        required: false
+        type: string
+        default: "720"
+
+permissions:
+  contents: write
+
+jobs:
+  clip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Siapkan alat
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg > /dev/null
+          pip install -q -U "yt-dlp[default]"
+
+      - name: Ambil dan potong klip
+        env:
+          JOB_ID: ${{ inputs.id }}
+          URL: ${{ inputs.url }}
+          CLIPS: ${{ inputs.clips }}
+          HEIGHT: ${{ inputs.height }}
+          YT_COOKIES: ${{ secrets.YT_COOKIES }}
+        run: |
+          mkdir -p out
+          python - <<'PY'
+          import json, os, re, subprocess
+          import yt_dlp
+
+          os.makedirs("out", exist_ok=True)
+          status = {"ok": False, "files": {}, "errors": {}}
+
+          def friendly(e):
+              e = str(e)
+              if re.search(r"Sign in to confirm|not a bot|cookies", e, re.I):
+                  return "YouTube memblokir server GitHub. Tambahkan cookies akun YouTube cadangan sebagai secret YT_COOKIES."
+              if re.search(r"Private video|members-only|age", e, re.I):
+                  return "Video privat, khusus member, atau dibatasi umur."
+              if re.search(r"unavailable|removed|not available", e, re.I):
+                  return "Video tidak tersedia di YouTube."
+              return "Gagal mengambil video: " + e[-300:]
+
+          try:
+              if not re.fullmatch(r"[0-9a-z-]{4,40}", os.environ["JOB_ID"]):
+                  raise ValueError("ID tidak valid")
+              url = os.environ["URL"]
+              if not re.match(r"^https://(www\.|m\.)?(youtube\.com|youtu\.be)/", url):
+                  raise ValueError("Link bukan YouTube")
+              clips = json.loads(os.environ["CLIPS"])
+              h = max(240, min(1080, int(os.environ.get("HEIGHT") or 720)))
+              opts = {"quiet": True, "no_warnings": True, "noplaylist": True,
+                      "format": f"bv*[height<={h}][vcodec^=avc1]+ba[ext=m4a]/bv*[height<={h}]+ba/b[height<={h}]/b"}
+              if os.environ.get("YT_COOKIES", "").strip():
+                  with open("/tmp/cookies.txt", "w") as f:
+                      f.write(os.environ["YT_COOKIES"].strip() + "\n")
+                  opts["cookiefile"] = "/tmp/cookies.txt"
+              with yt_dlp.YoutubeDL(opts) as y:
+                  info = y.extract_info(url, download=False)
+              fmts = info.get("requested_formats") or [info]
+              for i, (s, e) in enumerate(clips):
+                  s, e = float(s), float(e)
+                  if s < 0 or e <= s or e - s > 600:
+                      status["errors"][str(i)] = "Waktu klip tidak valid."
+                      continue
+                  out = f"out/clip-{i}.mp4"
+                  cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error"]
+                  for f in fmts:
+                      hdr = "".join(f"{k}: {v}\r\n" for k, v in (f.get("http_headers") or {}).items())
+                      cmd += ["-ss", f"{s:.3f}"] + (["-headers", hdr] if hdr else []) + ["-i", f["url"]]
+                  cmd += ["-map", "0:v:0", "-map", ("1:a:0?" if len(fmts) >= 2 else "0:a:0?"),
+                          "-t", f"{e - s:.3f}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+                          "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", out]
+                  p = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+                  if p.returncode == 0 and os.path.exists(out):
+                      status["files"][str(i)] = f"clip-{i}.mp4"
+                  else:
+                      status["errors"][str(i)] = "Gagal memotong: " + (p.stderr or "")[-200:]
+              status["ok"] = bool(status["files"])
+              if not status["ok"] and not status["errors"]:
+                  status["error"] = "Tidak ada klip yang diproses."
+          except Exception as e:
+              status["error"] = friendly(e)
+          with open("out/status.json", "w") as f:
+              json.dump(status, f, ensure_ascii=False)
+          print(json.dumps(status, ensure_ascii=False))
+          PY
+
+      - name: Kirim hasil
+        if: always()
+        env:
+          JOB_ID: ${{ inputs.id }}
+          TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          [[ "$JOB_ID" =~ ^[0-9a-z-]{4,40}$ ]] || exit 1
+          mkdir -p out
+          [ -f out/status.json ] || echo '{"ok":false,"error":"Proses di GitHub gagal sebelum selesai. Buka tab Actions untuk detail."}' > out/status.json
+          cd out
+          git init -q
+          git checkout -q -b "out-$JOB_ID"
+          git config user.name clipper-bot
+          git config user.email clipper-bot@users.noreply.github.com
+          git add -A
+          git commit -q -m "hasil $JOB_ID"
+          git push -q --force "https://x-access-token:${TOKEN}@github.com/${REPO}.git" "out-$JOB_ID"
+
+      - name: Hapus hasil lama (lebih dari 1 hari)
+        if: always()
+        continue-on-error: true
+        env:
+          TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          now=$(date +%s)
+          git ls-remote --heads "https://x-access-token:${TOKEN}@github.com/${REPO}.git" 'out-*' | awk '{print $2}' | sed 's#refs/heads/##' | while read b; do
+            ts=$(echo "$b" | cut -d- -f2)
+            [[ "$ts" =~ ^[0-9]+$ ]] || continue
+            if [ $(( now - ts )) -gt 86400 ]; then
+              git push -q "https://x-access-token:${TOKEN}@github.com/${REPO}.git" --delete "$b" || true
+            fi
+          done

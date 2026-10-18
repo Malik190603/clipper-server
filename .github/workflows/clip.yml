@@ -21,6 +21,11 @@ on:
         required: false
         type: string
         default: "720"
+      whisper:
+        description: Model Whisper (base/small/medium)
+        required: false
+        type: string
+        default: "small"
 
 permissions:
   contents: write
@@ -36,12 +41,17 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: whisper-${{ inputs.whisper || 'small' }}-v1
       - name: Siapkan alat
         run: |
           docker run --name bgutil -d -p 4416:4416 --init brainicism/bgutil-ytdlp-pot-provider > /dev/null
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg > /dev/null
-          pip install -q -U "yt-dlp[default]" bgutil-ytdlp-pot-provider
+          pip install -q -U "yt-dlp[default]" bgutil-ytdlp-pot-provider faster-whisper opencv-python-headless numpy
+          curl -sL -o /tmp/yunet.onnx https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
           for i in $(seq 1 20); do curl -s -o /dev/null http://127.0.0.1:4416/ && break; sleep 1; done
 
       - name: Ambil dan potong klip
@@ -130,6 +140,141 @@ jobs:
           with open("out/status.json", "w") as f:
               json.dump(status, f, ensure_ascii=False)
           print(json.dumps(status, ensure_ascii=False))
+          PY
+
+      - name: Transkrip suara dan lacak pembicara
+        if: always()
+        continue-on-error: true
+        env:
+          CLIPS: ${{ inputs.clips }}
+          WHISPER: ${{ inputs.whisper }}
+        run: |
+          python - <<'PY'
+          import json, os, subprocess
+          import numpy as np
+
+          st = json.load(open("out/status.json"))
+          clips = json.loads(os.environ["CLIPS"])
+          st["meta"] = {}
+
+          def transcribe(model, path, s0):
+              segs, info = model.transcribe(path, word_timestamps=True, vad_filter=True, beam_size=5)
+              words = []
+              for sg in segs:
+                  for w in (sg.words or []):
+                      t = w.word.strip()
+                      if t:
+                          words.append({"s": round(s0 + w.start, 2), "e": round(s0 + w.end, 2), "w": t})
+              return words, info.language
+
+          def audio_rms(path):
+              raw = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-ac", "1", "-ar", "16000", "-f", "s16le", "-"], capture_output=True).stdout
+              a = np.frombuffer(raw, np.int16).astype(np.float32) / 32768.0
+              win = 1600  # 0,1 detik
+              n = len(a) // win
+              r = np.sqrt(np.mean(a[: n * win].reshape(n, win) ** 2, axis=1)) if n else np.zeros(1)
+              return r
+
+          def speaker_track(path, s0):
+              import cv2
+              cap = cv2.VideoCapture(path)
+              fps = cap.get(cv2.CAP_PROP_FPS) or 30
+              W0, H0 = cap.get(3), cap.get(4)
+              k = 640 / W0 if W0 > 640 else 1
+              w, h = int(W0 * k), int(H0 * k)
+              det = cv2.FaceDetectorYN.create("/tmp/yunet.onnx", "", (w, h), 0.7, 0.3, 5000)
+              step = max(1, round(fps / 5))
+              rms = audio_rms(path)
+              thr = max(0.008, float(np.median(rms[rms > 0])) * 0.6) if np.any(rms > 0) else 1
+              tracks, samples, n = [], [], 0
+              while True:
+                  ok, fr = cap.read()
+                  if not ok:
+                      break
+                  if n % step == 0:
+                      t = n / fps
+                      img = cv2.resize(fr, (w, h))
+                      gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                      _, faces = det.detect(img)
+                      obs = []
+                      for f in ([] if faces is None else faces):
+                          x, y, fw, fh = f[:4]
+                          if fw < w * 0.04:
+                              continue
+                          m1x, m1y, m2x, m2y = f[10], f[11], f[12], f[13]
+                          mcx, mcy = (m1x + m2x) / 2, (m1y + m2y) / 2
+                          mw, mh = max(abs(m2x - m1x) * 1.6, fw * 0.3), fh * 0.28
+                          x0, y0 = int(max(0, mcx - mw / 2)), int(max(0, mcy - mh / 2))
+                          x1, y1 = int(min(w, mcx + mw / 2)), int(min(h, mcy + mh / 2))
+                          crop = cv2.resize(gray[y0:y1, x0:x1], (32, 16)).astype(np.float32) if x1 - x0 > 4 and y1 - y0 > 4 else None
+                          obs.append({"x": (x + fw / 2) / w, "y": (y + fh / 2) / h, "sz": fw / w, "m": crop})
+                      seen = []
+                      for o in obs:
+                          best, bd = None, 0.12
+                          for tr in tracks:
+                              d = abs(tr["x"] - o["x"]) + abs(tr["y"] - o["y"]) * 0.5
+                              if d < bd and t - tr["t"] < 1.5 and tr not in seen:
+                                  best, bd = tr, d
+                          if best is None:
+                              best = {"id": len(tracks), "x": o["x"], "y": o["y"], "t": t, "m": None, "act": 0.0, "sz": o["sz"]}
+                              tracks.append(best)
+                          motion = float(np.mean(np.abs(best["m"] - o["m"]))) if best["m"] is not None and o["m"] is not None else 0.0
+                          best.update(act=best["act"] * 0.6 + motion * 0.4, x=best["x"] * 0.5 + o["x"] * 0.5, y=best["y"] * 0.5 + o["y"] * 0.5, t=t, m=o["m"], sz=o["sz"])
+                          seen.append(best)
+                      ri = min(len(rms) - 1, int(t * 10))
+                      samples.append((t, rms[ri] > thr, [(tr["id"], tr["x"], tr["y"], tr["act"], tr["sz"]) for tr in seen]))
+                  n += 1
+              return choose_speaker(samples, s0)
+
+          def choose_speaker(samples, s0):
+              cur, cand, since, pts = None, None, 0.0, []
+              for t, speaking, vis in samples:
+                  if not vis:
+                      continue
+                  ids = [v[0] for v in vis]
+                  if len(vis) == 1:
+                      best = vis[0][0]
+                  elif speaking:
+                      best = max(vis, key=lambda v: v[3])[0]
+                  else:
+                      best = cur if cur in ids else max(vis, key=lambda v: v[4])[0]
+                  ts = t
+                  if cur is None or cur not in ids and best != cur and len(vis) == 1:
+                      cur, cand = best, None
+                  elif best != cur:
+                      if cand != best:
+                          cand, since = best, t
+                      elif t - since >= 0.6:
+                          cur, cand, ts = best, None, since
+                  else:
+                      cand = None
+                  v = [v for v in vis if v[0] == cur]
+                  if not v:
+                      continue
+                  x, y = v[0][1], v[0][2]
+                  if not pts or pts[-1]["s"] != cur or abs(x - pts[-1]["x"]) > 0.02 or s0 + t - pts[-1]["t"] >= 1.0:
+                      pts.append({"t": round(s0 + ts, 2), "x": round(float(x), 3), "y": round(float(y), 3), "s": int(cur)})
+              return pts
+
+          model = None
+          for key, f in (st.get("files") or {}).items():
+              i, path = int(key), "out/" + f
+              s0 = float(clips[i][0])
+              meta = {}
+              try:
+                  if model is None:
+                      from faster_whisper import WhisperModel
+                      model = WhisperModel(os.environ.get("WHISPER") or "small", device="cpu", compute_type="int8")
+                  meta["words"], meta["lang"] = transcribe(model, path, s0)
+              except Exception as e:
+                  meta["err_words"] = str(e)[-200:]
+              try:
+                  meta["track"] = speaker_track(path, s0)
+              except Exception as e:
+                  meta["err_track"] = str(e)[-200:]
+              st["meta"][key] = meta
+              print("klip", i, "kata:", len(meta.get("words", [])), "titik kamera:", len(meta.get("track", [])), meta.get("err_words", ""), meta.get("err_track", ""))
+          json.dump(st, open("out/status.json", "w"), ensure_ascii=False)
           PY
 
       - name: Kirim hasil

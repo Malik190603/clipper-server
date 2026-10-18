@@ -1,0 +1,1858 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" id="vp" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clipper Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: aplikasi studio — sidebar navigasi | area kerja; editor = inspektur | pratinjau, timeline di bawah */
+:root{
+  --bg:#0e1014; --panel:#16191f; --panel2:#1c2027; --sunk:#111318; --ink:#e9ebef; --muted:#9ba2ae; --faint:#69707c;
+  --line:#262a32; --line2:#323743;
+  --accent:#ffbf1a; --accent-ink:#1d1500; --accent-soft:rgba(255,191,26,.12);
+  --t-sub:#38bdf8; --t-emoji:#f472b6; --t-zoom:#a78bfa; --t-cam:#34d399; --t-video:#3a4150; --t-intro:#f59e0b;
+  --tally:#ff5a4f; --ok:#3fcf80; --ok-soft:rgba(63,207,128,.12); --err-soft:rgba(255,90,79,.12);
+  --stage:#07080a;
+  --f-display:"Bricolage Grotesque","Arial Black",system-ui,sans-serif;
+  --f-body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
+  --bg:#f2f3f5; --panel:#ffffff; --panel2:#f6f7f9; --sunk:#eceef1; --ink:#15181d; --muted:#5d6470; --faint:#8a909b;
+  --line:#e1e4e9; --line2:#cfd3da; --accent:#f0a500; --accent-ink:#1d1500; --accent-soft:rgba(240,165,0,.14);
+  --t-video:#c9ced8; --ok:#16834a; --tally:#d93a2f; --stage:#1a1d22; color-scheme:light}}
+:root[data-theme="light"]{
+  --bg:#f2f3f5; --panel:#ffffff; --panel2:#f6f7f9; --sunk:#eceef1; --ink:#15181d; --muted:#5d6470; --faint:#8a909b;
+  --line:#e1e4e9; --line2:#cfd3da; --accent:#f0a500; --accent-ink:#1d1500; --accent-soft:rgba(240,165,0,.14);
+  --t-video:#c9ced8; --ok:#16834a; --tally:#d93a2f; --stage:#1a1d22; color-scheme:light}
+*{box-sizing:border-box}
+html,body{height:100%}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-body);-webkit-font-smoothing:antialiased;overflow:hidden}
+a{color:inherit}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit}
+svg.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- Kerangka aplikasi ---------- */
+.app{height:100%;display:grid;grid-template-columns:236px minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+.side{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;
+  padding:calc(14px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 8px 16px}
+.mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#2b2f38,#16181d);display:grid;place-items:center;flex:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.mark i{width:10px;height:10px;border-radius:50%;background:var(--tally);box-shadow:0 0 0 3px rgba(255,90,79,.3)}
+.busy .mark i{animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:.2}}
+.brand b{font:800 17px/1 var(--f-display);letter-spacing:-.02em}
+.brand small{display:block;font:500 11px var(--f-body);color:var(--faint);margin-top:3px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;text-decoration:none;color:var(--muted);font-weight:600;font-size:13.5px}
+.nav a:hover{background:var(--panel2);color:var(--ink)}
+.nav a[aria-current="page"]{background:var(--accent-soft);color:var(--ink)}
+.nav a[aria-current="page"] svg{color:var(--accent)}
+.nav .count{margin-left:auto;font:600 11px var(--f-mono);color:var(--faint)}
+.side-sec{margin-top:18px;padding:0 10px;font:600 10.5px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.side-tasks{margin-top:8px;display:flex;flex-direction:column;gap:6px;overflow:auto;min-height:0;flex:1}
+.side-foot{margin-top:auto;padding:10px 8px 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.main{min-width:0;min-height:0;overflow:auto;position:relative}
+.page{max-width:1280px;margin:0 auto;padding:calc(22px + env(safe-area-inset-top,0px)) max(24px,env(safe-area-inset-right,0px)) 48px 24px;display:flex;flex-direction:column;gap:20px}
+.page-h{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.page-h h1{font:800 26px/1.1 var(--f-display);margin:0;letter-spacing:-.02em;text-wrap:balance}
+.page-h p{margin:4px 0 0;color:var(--muted)}
+.page-h .grow{flex:1;min-width:200px}
+.tabbar{display:none}
+
+/* ---------- Komponen ---------- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;min-width:0}
+.card-h{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+.card-h h2{font:700 14px var(--f-body);margin:0}
+.card-h .meta{margin-left:auto;color:var(--faint);font-size:12px}
+.card-b{padding:16px;display:flex;flex-direction:column;gap:14px}
+.btn{border:0;border-radius:9px;padding:9px 14px;font:700 13.5px var(--f-body);cursor:pointer;background:var(--accent);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;gap:7px;text-decoration:none;white-space:nowrap;transition:filter .15s}
+.btn:hover:not(:disabled){filter:brightness(1.07)}
+.btn.sec{background:var(--panel2);color:var(--ink);border:1px solid var(--line2)}
+.btn.ghost{background:transparent;color:var(--muted);border:1px solid transparent}
+.btn.ghost:hover{background:var(--panel2);color:var(--ink)}
+.btn.danger{background:transparent;color:var(--tally);border:1px solid color-mix(in srgb,var(--tally) 40%,transparent)}
+.btn.danger.armed{background:var(--tally);color:#fff}
+.btn.sm{padding:6px 10px;font-size:12.5px;border-radius:8px}
+.btn.icon{padding:7px;border-radius:8px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.lg{padding:12px 18px;font-size:14.5px;border-radius:10px}
+label.lbl{font:600 12px var(--f-body);color:var(--muted);display:block;margin-bottom:6px}
+.field{display:flex;flex-direction:column}
+input[type=text],input[type=password],input[type=number],input[type=url],select,textarea{
+  width:100%;background:var(--sunk);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:500 14px var(--f-body);min-width:0}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+textarea{resize:vertical;min-height:70px}
+button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{position:relative;display:inline-flex}
+.chip input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.chip span{border:1px solid var(--line2);background:var(--sunk);border-radius:99px;padding:6px 12px;font:600 12.5px var(--f-body);color:var(--muted)}
+.chip input:checked + span{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+.switch{display:flex;align-items:center;gap:10px;padding:9px 0;cursor:pointer;font-weight:600;font-size:13px;border-bottom:1px solid var(--line)}
+.switch:last-child{border-bottom:0}
+.switch span{flex:1}
+.switch input{appearance:none;width:34px;height:20px;border-radius:99px;background:var(--line2);position:relative;cursor:pointer;flex:none;transition:background .15s;margin:0}
+.switch input::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s}
+.switch input:checked{background:var(--accent)}
+.switch input:checked::after{transform:translateX(14px)}
+.hint{margin:0;color:var(--muted);font-size:12.5px}
+.status{font-size:13px;color:var(--muted)}
+.status:empty{display:none}
+.status.err{color:var(--tally);background:var(--err-soft);border-radius:8px;padding:8px 10px}
+.status.ok{color:var(--ok);background:var(--ok-soft);border-radius:8px;padding:8px 10px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.pill{display:inline-flex;align-items:center;gap:5px;font:600 11px var(--f-body);border-radius:99px;padding:3px 8px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 35%,transparent)}
+.pill.warn{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
+.pill.err{color:var(--tally);border-color:color-mix(in srgb,var(--tally) 35%,transparent)}
+.empty{border:1px dashed var(--line2);border-radius:14px;padding:28px 20px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
+.empty .btn{margin-top:14px}
+
+/* ---------- Beranda ---------- */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.stat{padding:14px 16px}
+.stat small{display:block;color:var(--faint);font:600 11px var(--f-body);letter-spacing:.06em;text-transform:uppercase}
+.stat b{display:block;font:800 28px/1.15 var(--f-display);margin-top:6px;font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:12px}
+.home-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+.projects{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.proj{overflow:hidden;display:flex;flex-direction:column;cursor:pointer;transition:border-color .15s}
+.proj:hover{border-color:var(--line2)}
+.proj .cover{aspect-ratio:16/9;background:#000 center/cover no-repeat;position:relative}
+.proj .cover .pill{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;border-color:transparent}
+.proj .body{padding:12px;display:flex;flex-direction:column;gap:6px;flex:1}
+.proj h3{margin:0;font:700 14px/1.35 var(--f-body);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.proj .row{display:flex;align-items:center;gap:4px 6px;color:var(--faint);font-size:12px;margin-top:auto;flex-wrap:wrap}
+.proj .row span{white-space:nowrap}
+.proj .row .btn{margin-left:auto}
+.checklist{display:flex;flex-direction:column;gap:8px}
+.check{display:flex;gap:10px;align-items:center;font-size:13px}
+.check i{width:18px;height:18px;border-radius:50%;border:2px solid var(--line2);flex:none}
+.check.done i{background:var(--ok);border-color:var(--ok)}
+.task{border:1px solid var(--line);border-radius:10px;padding:9px 10px;display:flex;flex-direction:column;gap:6px;background:var(--panel2)}
+.task-top{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;min-width:0}
+.task-top span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.task .msg{font-size:11.5px;color:var(--muted);overflow-wrap:anywhere}
+.prog{height:4px;border-radius:9px;background:var(--line);overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}
+.task.done .prog i{background:var(--ok)} .task.err .prog i{background:var(--tally)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+.task.done .dot{background:var(--ok)} .task.err .dot{background:var(--tally)}
+.task.run .dot{animation:blink 1s steps(2) infinite}
+
+/* ---------- Proyek baru ---------- */
+.new-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+.url-row{display:flex;gap:10px}
+.url-row input{font-size:15px;padding:12px 14px}
+
+/* ---------- Halaman proyek ---------- */
+.clip-list{display:flex;flex-direction:column;gap:8px}
+.cliprow{display:grid;grid-template-columns:auto 72px minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:10px 12px}
+.cliprow input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent);margin:0}
+.cliprow .mini{width:72px;aspect-ratio:9/16;border-radius:7px;background:var(--stage) center/cover;overflow:hidden}
+.cliprow .mini canvas{width:100%;height:100%;display:block}
+.cliprow h3{margin:0;font:700 14px/1.35 var(--f-body)}
+.cliprow .sub{color:var(--muted);font-size:12.5px;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cliprow .meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.score{font:800 22px/1 var(--f-display);text-align:center;min-width:44px;font-variant-numeric:tabular-nums}
+.score small{display:block;font:600 9px var(--f-body);color:var(--faint);letter-spacing:.08em;margin-top:3px}
+.score.hi{color:var(--ok)} .score.mid{color:var(--accent)} .score.lo{color:var(--faint)}
+.row-actions{display:flex;gap:6px}
+.bulk{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* ---------- Pustaka ekspor ---------- */
+.exports{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.exp{overflow:hidden;display:flex;flex-direction:column}
+.exp .v{aspect-ratio:9/16;background:#000;position:relative}
+.exp .v img,.exp .v video{width:100%;height:100%;object-fit:cover;display:block}
+.exp .v .pill{position:absolute;right:8px;top:8px;background:rgba(0,0,0,.7);color:#fff;border-color:transparent}
+.exp .body{padding:10px;display:flex;flex-direction:column;gap:8px}
+.exp h3{margin:0;font:700 13px/1.35 var(--f-body);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.exp .acts{display:flex;gap:6px;flex-wrap:wrap}
+
+/* ---------- Editor ---------- */
+.editor{height:100%;display:grid;grid-template-columns:340px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;
+  grid-template-areas:"top top" "insp stage" "tl tl";background:var(--bg)}
+.ed-top{grid-area:top;display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) 10px 14px;border-bottom:1px solid var(--line);background:var(--panel);min-width:0}
+.ed-top .t{min-width:0;flex:1}
+.ed-top .t b{display:block;font:700 14px var(--f-body);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ed-top .t small{color:var(--faint);font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.insp{grid-area:insp;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.itabs{display:flex;flex-wrap:wrap;gap:2px;padding:8px;border-bottom:1px solid var(--line)}
+.itabs button{border:0;background:transparent;color:var(--muted);font:600 12.5px var(--f-body);padding:7px 10px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.itabs button[aria-selected="true"]{background:var(--panel2);color:var(--ink)}
+.ipane{padding:14px;overflow:auto;display:flex;flex-direction:column;gap:14px;min-height:0;flex:1}
+.ipane h4{margin:0;font:600 10.5px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.sect{display:flex;flex-direction:column;gap:8px}
+.cue{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px;border-radius:9px;border:1px solid transparent}
+.cue.sel{border-color:var(--t-sub);background:color-mix(in srgb,var(--t-sub) 10%,transparent)}
+.cue .mono{font-size:11px;color:var(--muted);cursor:pointer}
+.cue input{padding:6px 8px;font-size:13px}
+.stage{grid-area:stage;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;min-height:0;min-width:0;background:radial-gradient(ellipse at center,var(--panel2),var(--bg) 70%)}
+.screen{position:relative;height:100%;max-height:calc(100vh - 330px);aspect-ratio:9/16;max-width:100%;background:var(--stage);border-radius:10px;overflow:hidden;box-shadow:0 0 0 1px var(--line2),0 20px 50px -20px rgba(0,0,0,.6)}
+.screen canvas{width:100%;height:100%;display:block}
+.screen .over{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#9aa1ad;padding:20px;font-size:13px;background:repeating-linear-gradient(135deg,transparent 0 10px,rgba(255,255,255,.025) 10px 20px)}
+.screen .over .btn{margin-top:10px}
+.transport{display:flex;align-items:center;gap:10px;color:var(--muted)}
+.transport .tc{font:500 12.5px var(--f-mono);font-variant-numeric:tabular-nums;min-width:110px;text-align:center}
+.play{width:40px;height:40px;border-radius:50%;border:0;background:var(--ink);color:var(--bg);display:grid;place-items:center;cursor:pointer}
+.play svg{stroke:none;fill:currentColor}
+.tl{grid-area:tl;background:var(--panel);border-top:1px solid var(--line);display:flex;flex-direction:column;min-width:0;padding-bottom:env(safe-area-inset-bottom,0px)}
+.tl-bar{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tl-bar .sp{flex:1}
+.tl-bar input[type=range]{width:110px;accent-color:var(--accent)}
+.tl-body{display:grid;grid-template-columns:86px minmax(0,1fr);max-height:250px}
+.tl-labels{border-right:1px solid var(--line);display:flex;flex-direction:column;padding-top:22px}
+.tl-labels div{height:34px;display:flex;align-items:center;gap:6px;padding:0 10px;font:600 11px var(--f-body);color:var(--muted)}
+.tl-labels i{width:8px;height:8px;border-radius:2px;flex:none}
+.tl-scroll{overflow-x:auto;overflow-y:hidden;position:relative;scrollbar-width:thin}
+.tl-inner{position:relative;min-width:100%}
+.ruler{height:22px;position:relative;border-bottom:1px solid var(--line);cursor:pointer}
+.ruler span{position:absolute;top:4px;font:500 10px var(--f-mono);color:var(--faint);transform:translateX(3px)}
+.ruler i{position:absolute;bottom:0;width:1px;height:6px;background:var(--line2)}
+.track{height:34px;position:relative;border-bottom:1px solid var(--line)}
+.blk{position:absolute;top:5px;height:24px;border-radius:6px;font:600 11px/24px var(--f-body);padding:0 7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#0b0d10;cursor:grab;touch-action:none;user-select:none}
+.blk.sel{box-shadow:0 0 0 2px var(--ink)}
+.blk.video{background:var(--t-video);color:var(--ink);cursor:default;display:flex;align-items:center;gap:6px}
+.blk.intro{background:var(--t-intro)}
+.blk.sub{background:var(--t-sub)}
+.mk{position:absolute;top:6px;width:22px;height:22px;margin-left:-11px;border-radius:6px;display:grid;place-items:center;font-size:13px;cursor:grab;touch-action:none;user-select:none;color:#0b0d10;font-weight:700}
+.mk.emoji{background:color-mix(in srgb,var(--t-emoji) 30%,var(--panel))}
+.mk.zoom{background:var(--t-zoom);font-size:10px}
+.mk.cam{background:var(--t-cam);font-size:10px}
+.mk.sel{box-shadow:0 0 0 2px var(--ink)}
+.handle{position:absolute;top:0;bottom:0;width:10px;background:rgba(255,255,255,.35);cursor:ew-resize;touch-action:none}
+.handle.l{left:0;border-radius:6px 0 0 6px} .handle.r{right:0;border-radius:0 6px 6px 0}
+.playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);pointer-events:none;z-index:3}
+.playhead::before{content:"";position:absolute;top:0;left:-5px;border:6px solid transparent;border-top:8px solid var(--accent)}
+.thumbs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.thumb{padding:0;border:2px solid transparent;border-radius:9px;overflow:hidden;background:#000;cursor:pointer;aspect-ratio:9/16}
+.thumb canvas{width:100%;height:100%;display:block}
+.thumb[aria-pressed="true"]{border-color:var(--accent)}
+.opt{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--sunk);cursor:pointer;font-size:13px;line-height:1.4}
+.opt:has(input[type=radio]:checked){border-color:color-mix(in srgb,var(--accent) 55%,var(--line));background:var(--accent-soft)}
+.opt input[type=radio]{accent-color:var(--accent);margin:0;flex:none}
+.opt input[type=text]{padding:5px 8px;font-size:13px}
+.emoji-pick{display:flex;flex-wrap:wrap;gap:4px}
+.emoji-pick button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--sunk);font-size:18px;cursor:pointer}
+.list-row{display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 8px;border-radius:8px;background:var(--sunk)}
+.list-row .mono{font-size:11.5px;color:var(--muted);cursor:pointer}
+.list-row .grow{flex:1;min-width:0}
+.range{display:flex;align-items:center;gap:10px}
+.range input{flex:1;accent-color:var(--accent);min-width:0}
+.range output{font:500 12px var(--f-mono);color:var(--muted);min-width:3.5em;text-align:right}
+.cap{white-space:pre-wrap;font:13px/1.5 var(--f-body)}
+
+/* ---------- Dok render & toast ---------- */
+.dock{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;width:150px;background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:8px;box-shadow:0 20px 40px -10px rgba(0,0,0,.5)}
+.dock .screen{height:auto;width:100%;max-height:none}
+.dock small{display:block;margin-top:6px;font-size:11px;color:var(--muted)}
+.toasts{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:50;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(440px,calc(100% - 32px))}
+.toast{pointer-events:auto;background:var(--ink);color:var(--bg);border-radius:10px;padding:10px 14px;font-weight:600;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.35);display:flex;gap:10px;align-items:center}
+.toast a,.toast button{color:var(--accent);font-weight:700;background:none;border:0;cursor:pointer;padding:0}
+
+/* ---------- Tablet & HP ---------- */
+:root[data-layout="tablet"] .home-grid,:root[data-layout="tablet"] .new-grid{grid-template-columns:minmax(0,1fr)}
+:root[data-layout="tablet"] .editor{grid-template-columns:300px minmax(0,1fr)}
+:root[data-layout="mobile"] body{overflow:auto}
+:root[data-layout="mobile"] .app{display:block;height:auto}
+:root[data-layout="mobile"] .side{display:none}
+:root[data-layout="mobile"] .main{overflow:visible;padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+:root[data-layout="mobile"] .page{padding:calc(16px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 32px max(16px,env(safe-area-inset-left,0px));gap:16px}
+:root[data-layout="mobile"] .page-h h1{font-size:22px}
+:root[data-layout="mobile"] .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+:root[data-layout="mobile"] .home-grid,:root[data-layout="mobile"] .new-grid{grid-template-columns:minmax(0,1fr)}
+:root[data-layout="mobile"] .grid3{grid-template-columns:repeat(2,minmax(0,1fr))}
+:root[data-layout="mobile"] .url-row{flex-direction:column}
+:root[data-layout="mobile"] .cliprow{grid-template-columns:auto 56px minmax(0,1fr) auto;row-gap:8px}
+:root[data-layout="mobile"] .cliprow .mini{width:56px}
+:root[data-layout="mobile"] .cliprow .row-actions{grid-column:2/-1}
+:root[data-layout="mobile"] .exports{grid-template-columns:repeat(2,minmax(0,1fr))}
+:root[data-layout="mobile"] .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--panel);border-top:1px solid var(--line);
+  padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+.tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;text-decoration:none;color:var(--faint);font:600 10.5px var(--f-body);border-radius:8px;position:relative}
+.tabbar a[aria-current="page"]{color:var(--accent)}
+.tabbar .badge{position:absolute;top:2px;left:calc(50% + 6px);min-width:16px;height:16px;border-radius:99px;background:var(--accent);color:var(--accent-ink);font:700 10px/16px var(--f-body);padding:0 4px}
+:root[data-layout="mobile"] .editor{height:auto;min-height:100vh;display:flex;flex-direction:column}
+:root[data-layout="mobile"] .ed-top{position:sticky;top:0;z-index:10}
+:root[data-layout="mobile"] .stage{padding:12px;order:1}
+:root[data-layout="mobile"] .screen{height:auto;width:min(62vw,300px);max-height:none}
+:root[data-layout="mobile"] .tl{order:2}
+:root[data-layout="mobile"] .insp{order:3;border-right:0;border-top:1px solid var(--line)}
+:root[data-layout="mobile"] .tl-body{grid-template-columns:62px minmax(0,1fr)}
+:root[data-layout="mobile"] .tl-labels div{padding:0 6px;font-size:10px}
+:root[data-layout="mobile"] body.in-editor .tabbar{display:none}
+:root[data-layout="mobile"] body.in-editor .main{padding-bottom:env(safe-area-inset-bottom,0px)}
+:root[data-layout="mobile"] .dock{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+:root[data-layout="mobile"] .toasts{bottom:calc(80px + env(safe-area-inset-bottom,0px))}
+:root[data-view="mobile"]:not([data-small]) .main{max-width:520px;margin:0 auto;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+:root[data-view="mobile"]:not([data-small]) .tabbar{max-width:520px;margin:0 auto}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="mark" aria-hidden="true"><i></i></span><div><b>Clipper Studio</b><small>YouTube → klip viral</small></div></div>
+    <nav class="nav" id="nav">
+      <a href="#home" data-r="home"><svg class="i" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Beranda</a>
+      <a href="#new" data-r="new"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Proyek baru</a>
+      <a href="#projects" data-r="projects"><svg class="i" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Semua proyek<span class="count" id="navProjCount"></span></a>
+      <a href="#exports" data-r="exports"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M10 9l5 3-5 3z"/></svg>Hasil ekspor<span class="count" id="navExpCount"></span></a>
+      <a href="#settings" data-r="settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Pengaturan</a>
+    </nav>
+    <div class="side-sec">Antrian tugas</div>
+    <div class="side-tasks" id="sideTasks"></div>
+    <div class="side-foot">
+      <div class="chips" role="group" aria-label="Tampilan">
+        <label class="chip"><input type="radio" name="viewSide" value="auto"><span>Otomatis</span></label>
+        <label class="chip"><input type="radio" name="viewSide" value="desktop"><span>Desktop</span></label>
+        <label class="chip"><input type="radio" name="viewSide" value="mobile"><span>Mobile</span></label>
+      </div>
+      <button class="btn ghost sm" type="button" id="themeBtn" style="justify-content:flex-start">Tema: Otomatis</button>
+    </div>
+  </aside>
+  <main class="main" id="view"></main>
+</div>
+<nav class="tabbar" id="tabbar">
+  <a href="#home" data-r="home"><svg class="i" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Beranda</a>
+  <a href="#projects" data-r="projects"><svg class="i" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Proyek</a>
+  <a href="#new" data-r="new"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Baru</a>
+  <a href="#exports" data-r="exports"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M10 9l5 3-5 3z"/></svg>Hasil<span class="badge" id="tabTaskBadge" hidden></span></a>
+  <a href="#settings" data-r="settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Atur</a>
+</nav>
+<div class="dock" id="dock" hidden><div class="screen" id="dockScreen"></div><small id="dockMsg">Merender…</small></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<video id="src" playsinline preload="auto" hidden></video>
+<script>
+"use strict";
+/* ===== Dasar ===== */
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d){ try { const v = localStorage.getItem("clipper." + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v){ try { localStorage.setItem("clipper." + k, JSON.stringify(v)); return true; } catch (e) { toast("Penyimpanan browser penuh. Hapus proyek lama."); return false; } }
+};
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch])); }
+function slug(s){ return String(s).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").slice(0, 40) || "klip"; }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const video = $("src");
+let srcOffset = 0, loadedFor = null;
+
+function toast(msg, action){
+  const box = $("toasts"); if (!box) return;
+  const t = document.createElement("div"); t.className = "toast"; t.innerHTML = `<span>${esc(msg)}</span>`;
+  if (action) { const b = document.createElement("button"); b.textContent = action.label; b.onclick = () => { action.run(); t.remove(); }; t.appendChild(b); }
+  box.appendChild(t); setTimeout(() => t.remove(), action ? 7000 : 3800);
+}
+// Tombol hapus dua langkah: ketuk sekali untuk "Yakin?", ketuk lagi untuk hapus
+function armDelete(btn, run){
+  btn.onclick = e => {
+    e.stopPropagation();
+    if (btn.classList.contains("armed")) { run(); return; }
+    btn.classList.add("armed"); const o = btn.innerHTML; btn.textContent = "Yakin hapus?";
+    setTimeout(() => { if (btn.isConnected) { btn.classList.remove("armed"); btn.innerHTML = o; } }, 3000);
+  };
+}
+async function copyText(text, btn){
+  try { await navigator.clipboard.writeText(text); }
+  catch (e) { const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch (_) {} ta.remove(); }
+  if (btn) { const o = btn.textContent; btn.textContent = "Tersalin"; setTimeout(() => btn.textContent = o, 1300); }
+}
+function download(blob, name){
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+}
+
+/* ===== Pengaturan ===== */
+const DEFAULT_SETTINGS = { model: "gemini-2.5-flash", whisper: "small", quality: 720, voice: "Puck", thumbStyle: "kuning", theme: "auto", view: "auto" };
+const DEFAULT_STYLE = { layout: "cover", follow: true, subs: true, title: true, zoom: true, emoji: true, bar: false, upper: true, intro: true, shift: 0 };
+function settings(){ return Object.assign({}, DEFAULT_SETTINGS, store.get("settings", {})); }
+function setSetting(k, v){ const s = store.get("settings", {}); s[k] = v; store.set("settings", s); }
+function srv(){ return { url: String(store.get("srvUrl", "")).trim().replace(/^https?:\/\/github\.com\//, "").replace(/\.git$|\/+$/g, ""), key: store.get("srvKey", "") }; }
+function srvOk(){ const s = srv(); return /^[\w.-]+\/[\w.-]+$/.test(s.url) && !!s.key; }
+function styleOf(p){ return Object.assign({}, DEFAULT_STYLE, (p && p.style) || {}); }
+function renderOpts(p){ const s = settings(), st = styleOf(p); return Object.assign({}, st, { quality: +s.quality || 720, voice: s.voice }); }
+
+/* ===== MESIN (teruji) ===== */
+/* ---------- Util waktu ---------- */
+function parseTime(v){
+  if (typeof v === "number") return v;
+  if (v == null) return NaN;
+  const s = String(v).trim().replace(",", ".");
+  if (/^\d+(\.\d+)?$/.test(s)) return parseFloat(s);
+  const p = s.split(":").map(parseFloat);
+  if (p.some(isNaN)) return NaN;
+  return p.reduce((a, x) => a * 60 + x, 0);
+}
+function fmt(t){
+  t = Math.max(0, t || 0);
+  const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = Math.floor(t % 60);
+  const mm = String(m).padStart(h ? 2 : 1, "0"), ss = String(s).padStart(2, "0");
+  return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+function ytId(url){
+  const m = String(url).match(/(?:v=|youtu\.be\/|shorts\/|embed\/|live\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+/* ---------- Prompt Gemini ---------- */
+const modeText = {
+  pintar: "Tentukan sendiri jenis momen yang paling cocok untuk video ini (lucu, emosional, informatif, kontroversial, plot twist, atau quotable). Utamakan hook kuat di 3 detik pertama.",
+  biasa: "Konten umum (podcast, vlog, edukasi, gaming). Cari momen dengan hook kuat, cerita lengkap, punchline, fakta mengejutkan, atau opini tajam.",
+  quotes: "Konten quotes/motivasi. Cari kalimat bijak, nasihat, atau pernyataan yang sangat layak dikutip dan bisa berdiri sendiri tanpa konteks.",
+  film: "Konten film/kartun (termasuk kartun anak). Cari adegan paling lucu, menegangkan, mengharukan, atau ikonik dengan alur adegan yang utuh."
+};
+function buildPrompt(o){
+  const lang = o.subLang === "id"
+    ? "Tulis subtitle dalam Bahasa Indonesia (terjemahkan bila video berbahasa lain), tetap ikuti waktu ucapan aslinya."
+    : "Tulis subtitle persis dalam bahasa yang diucapkan di video (deteksi otomatis; bila campur, tulis apa adanya).";
+  return `Kamu adalah editor video short-form profesional (TikTok, Reels, YouTube Shorts).
+Tonton video YouTube ini dan pilih ${o.n} klip terbaik yang berpotensi viral.
+
+ATURAN DURASI: setiap klip berdurasi antara ${o.min} sampai ${o.max} detik.
+JENIS KONTEN: ${modeText[o.mode] || modeText.pintar}
+${o.extra ? "CATATAN PENGGUNA: " + o.extra : ""}
+
+ATURAN KLIP:
+- Mulai tepat di awal kalimat/adegan, selesai saat pemikiran atau adegan tuntas. Jangan memotong di tengah kata.
+- Klip tidak boleh saling tumpang tindih. Hindari intro, outro, iklan sponsor, dan ajakan subscribe.
+- Semua waktu dalam DETIK sejak awal video (angka desimal, contoh 754.5).
+
+UNTUK SETIAP KLIP BERIKAN:
+- start, end: waktu dalam detik.
+- title: judul hook pendek bahasa Indonesia, maksimal 7 kata, memancing rasa penasaran.
+- caption: caption posting bahasa Indonesia 1–2 kalimat.
+- hashtags: 4–6 hashtag relevan (tanpa spasi).
+- viral_score: 0–100, jujur dan realistis.
+- reason: 1 kalimat bahasa Indonesia, kenapa momen ini menarik.
+- focus_x: posisi horizontal wajah/subjek utama di layar (0 = paling kiri, 0.5 = tengah, 1 = paling kanan).
+- focus: jalur kamera yang mengikuti ORANG YANG SEDANG BERBICARA. Daftar {t: detik absolut, x: posisi horizontal wajah pembicara 0–1}. Titik pertama di awal klip, lalu tambah titik SETIAP KALI pembicara berganti atau pembicara berpindah posisi. Bila tidak ada yang bicara, arahkan ke wajah/subjek paling penting.
+- subtitles: daftar potongan ucapan yang MENUTUPI SELURUH klip berurutan. Tiap potongan 1–5 kata (maks ±24 karakter), dengan s dan e (detik absolut) sedekat mungkin dengan saat kata diucapkan, t = teks, hl = 0–2 kata paling penting dari t (tulis persis sama). ${lang} Bila tidak ada ucapan (mis. adegan tanpa dialog), boleh kosong.
+- hooks: 3 kalimat hook pembuka berbeda gaya (1: bikin penasaran, 2: kontroversial/berani, 3: emosional), bahasa Indonesia, maksimal 10 kata, enak diucapkan, JANGAN membocorkan inti cerita.
+- thumb_times: 3 detik absolut DI DALAM klip dengan ekspresi wajah atau momen visual paling kuat untuk thumbnail.
+- thumb_emoji: satu emoji yang paling mewakili klip.
+- emojis: 2–5 emoji yang muncul di momen penting: {t: detik absolut, e: satu emoji}.
+- zooms: 2–4 detik absolut untuk efek zoom (punchline, reaksi, kata kunci).
+
+Balas HANYA JSON valid dengan bentuk:
+{"video_title":"…","language":"id","clips":[{"start":0,"end":0,"title":"","caption":"","hashtags":[""],"viral_score":0,"reason":"","focus_x":0.5,"focus":[{"t":0,"x":0.5}],"subtitles":[{"s":0,"e":0,"t":"","hl":[""]}],"hooks":["","",""],"thumb_times":[0,0,0],"thumb_emoji":"😱","emojis":[{"t":0,"e":"🔥"}],"zooms":[0]}]}`;
+}
+
+
+function explainError(code, data){
+  const msg = (data && data.error && data.error.message) || "";
+  if (code === 400 && /API key/i.test(msg)) return "API key tidak valid. Periksa lagi di langkah 1.";
+  if (code === 403) return "API key ditolak (403). Pastikan key aktif dan Gemini API sudah diaktifkan.";
+  if (code === 404) return "Model tidak ditemukan. Ganti model di Pengaturan lanjutan.";
+  if (code === 429) return "Kuota gratis Gemini habis untuk sementara. Tunggu sebentar atau coba model lain.";
+  if (/private|unavailable|not.*access/i.test(msg)) return "Video tidak bisa diakses Gemini. Pastikan videonya publik (bukan privat/unlisted/dibatasi umur).";
+  if (/token|too long|exceed/i.test(msg)) return "Video terlalu panjang untuk sekali analisis. Coba video yang lebih pendek (di bawah ±1 jam).";
+  return `Gemini error ${code}: ${msg || "tidak diketahui"}`;
+}
+function normalize(clips, o){
+  return clips.map(c => {
+    let s = parseTime(c.start), e = parseTime(c.end);
+    if (!isFinite(s) || !isFinite(e)) return null;
+    if (e - s < o.min) e = s + o.min;
+    if (e - s > o.max) e = s + o.max;
+    return {
+      start: s, end: e,
+      title: String(c.title || "Klip").trim(),
+      caption: String(c.caption || "").trim(),
+      hashtags: (c.hashtags || []).map(h => "#" + String(h).replace(/^#/, "").replace(/\s+/g, "")).filter(h => h.length > 1),
+      score: Math.max(0, Math.min(100, Math.round(+c.viral_score || 0))),
+      reason: String(c.reason || ""),
+      focus: isFinite(+c.focus_x) ? Math.max(0, Math.min(1, +c.focus_x)) : 0.5,
+      track: (c.focus || []).map(p => ({ t: parseTime(p.t), x: Math.max(0, Math.min(1, +p.x)) }))
+        .filter(p => isFinite(p.t) && isFinite(p.x)).sort((a, b) => a.t - b.t),
+      adj: 0,
+      hooks: (c.hooks || []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 3),
+      thumbT: (c.thumb_times || []).map(parseTime).filter(isFinite),
+      thumbEmoji: String(c.thumb_emoji || "").trim(),
+      subs: (c.subtitles || []).map(x => ({ s: parseTime(x.s), e: parseTime(x.e), t: String(x.t || "").trim(), hl: (x.hl || []).map(String) }))
+        .filter(x => isFinite(x.s) && isFinite(x.e) && x.t).sort((a, b) => a.s - b.s),
+      emojis: (c.emojis || []).map(x => ({ t: parseTime(x.t), e: String(x.e || "") })).filter(x => isFinite(x.t) && x.e),
+      zooms: (c.zooms || []).map(parseTime).filter(isFinite),
+      on: true, out: null, hookIdx: 0, thumbIdx: 0
+    };
+  }).filter(Boolean).map(c => {
+    c.thumbT = c.thumbT.filter(t => t >= c.start && t <= c.end);
+    if (!c.hooks.length) c.hooks = [c.title];
+    return c;
+  }).sort((a, b) => b.score - a.score);
+}
+
+
+async function gh(path, init, raw){
+  const s = srv();
+  if (!srvOk()) throw new Error("Isi repo dan token GitHub dulu (langkah 1 → Pengambil video).");
+  let res;
+  try {
+    res = await fetch("https://api.github.com/repos/" + s.url + path, Object.assign({}, init, { headers: Object.assign({
+      "Authorization": "Bearer " + s.key, "Accept": raw ? "application/vnd.github.raw" : "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28" }, init && init.headers) }));
+  } catch (e) { throw new Error("Tidak bisa terhubung ke GitHub. Cek internet, lalu coba lagi."); }
+  return res;
+}
+async function ghErr(res){
+  let msg = ""; try { msg = (await res.json()).message || ""; } catch (e) {}
+  if (res.status === 401) return "Token GitHub salah atau kedaluwarsa. Buat token baru.";
+  if (res.status === 403) return "Token GitHub tidak punya izin. Pastikan izin Actions: Read and write dan Contents: Read.";
+  if (res.status === 404) return "Repo atau file workflow tidak ditemukan. Cek nama repo dan pastikan file .github/workflows/clip.yml ada.";
+  if (res.status === 422) return "GitHub menolak permintaan: " + msg;
+  return "GitHub error " + res.status + (msg ? ": " + msg : "");
+}
+let defaultBranch = null;
+async function branch(){
+  if (defaultBranch) return defaultBranch;
+  const r = await gh("");
+  if (!r.ok) throw new Error(await ghErr(r));
+  defaultBranch = (await r.json()).default_branch || "main";
+  return defaultBranch;
+}
+
+let progressFn = () => {};
+const say = m => progressFn(m);
+function segKey(c){ return `${c.vid}:${c.start.toFixed(2)}-${c.end.toFixed(2)}:${settings().quality}`; }
+const inflight = new Map();
+
+// Minta GitHub Actions mengambil & memotong beberapa klip sekaligus (satu tugas)
+async function runGithubJob(need){
+  const id = Math.floor(Date.now() / 1000) + "-" + Math.random().toString(36).slice(2, 8);
+  const ref = await branch();
+  say("Mengirim tugas ke GitHub…");
+  const r = await gh("/actions/workflows/clip.yml/dispatches", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ref, inputs: {
+      id, url: "https://www.youtube.com/watch?v=" + need[0].vid,
+      clips: JSON.stringify(need.map(c => [+c.start.toFixed(2), +c.end.toFixed(2)])),
+      height: String(settings().quality), whisper: settings().whisper || "small" } }) });
+  if (!r.ok) throw new Error(await ghErr(r));
+  const t0 = Date.now(); let status = null;
+  for (;;) {
+    await sleep(5000);
+    say(`GitHub mengambil & memotong ${need.length} klip… ${Math.round((Date.now() - t0) / 1000)} dtk (biasanya 1–3 menit)`);
+    const q = await gh(`/contents/status.json?ref=out-${id}`, null, true);
+    if (q.ok) { status = await q.json(); break; }
+    if (q.status !== 404) throw new Error(await ghErr(q));
+    if (Date.now() - t0 > 20 * 60 * 1000) throw new Error("GitHub terlalu lama. Buka tab Actions di repo untuk melihat masalahnya.");
+  }
+  if (!status.ok && status.error) throw new Error(status.error);
+  const out = [];
+  for (let i = 0; i < need.length; i++) {
+    const f = status.files && status.files[String(i)];
+    if (!f) { out.push({ err: (status.errors && status.errors[String(i)]) || status.error || "Klip gagal diproses." }); continue; }
+    say(`Mengunduh klip ${i + 1}/${need.length} ke HP…`);
+    const d = await gh(`/contents/${f}?ref=out-${id}`, null, true);
+    if (!d.ok) { out.push({ err: await ghErr(d) }); continue; }
+    out.push({ url: URL.createObjectURL(await d.blob()), meta: status.meta && status.meta[String(i)] });
+  }
+  return out;
+}
+// Kembalikan janji URL video per klip; klip yang belum ada diminta dalam satu tugas
+// Video yang sudah diambil tetap dipakai selama klip dipangkas di dalam rentangnya
+function segCovers(c){ return !!(c.seg && c.seg.url && c.seg.s <= c.start + 0.01 && c.seg.e >= c.end - 0.01 && c.seg.q === settings().quality); }
+function fetchSegments(list){
+  const need = list.filter(c => !segCovers(c) && !inflight.has(segKey(c)));
+  if (need.length) {
+    const job = runGithubJob(need);
+    need.forEach((c, i) => {
+      const k = segKey(c), s0 = c.start, e0 = c.end;
+      const p = job.then(async res => {
+        if (res[i].err) throw new Error(res[i].err);
+        if (res[i].meta) { say("Menyusun subtitle & kamera…"); try { await applyMeta(c, res[i].meta); } catch (er) { console.warn(er); } }
+        if (c.seg && c.seg.url) URL.revokeObjectURL(c.seg.url);
+        c.seg = { key: k, url: res[i].url, s: s0, e: e0, q: settings().quality };
+        return res[i].url;
+      }).finally(() => inflight.delete(k));
+      p.catch(() => {});
+      inflight.set(k, p);
+    });
+  }
+  return list.map(c => segCovers(c) ? Promise.resolve(c.seg.url) : inflight.get(segKey(c)));
+}
+async function loadClipSource(c, sayFn){
+  if (sayFn) progressFn = sayFn;
+  const url = await fetchSegments([c])[0];
+  if (loadedFor !== url) {
+    await new Promise((res, rej) => {
+      video.onloadedmetadata = () => res();
+      video.onerror = () => rej(new Error("Potongan video tidak bisa diputar di browser ini."));
+      video.src = url;
+    });
+    loadedFor = url;
+  }
+  srcOffset = c.seg.s;
+}
+function ready(){ return video.readyState >= 1 && video.videoWidth > 0; }
+
+function seek(t){
+  return new Promise(res => {
+    const done = () => { video.removeEventListener("seeked", done); res(); };
+    video.addEventListener("seeked", done);
+    const local = t - srcOffset;
+    video.currentTime = Math.max(0, Math.min(local, (video.duration || local) - 0.05));
+  });
+}
+
+
+/* ---------- Mesin gambar 9:16 ---------- */
+const canvas = document.createElement("canvas"); canvas.width = 720; canvas.height = 1280; canvas.id = "canvas"; const ctx = canvas.getContext("2d");
+const bgCanvas = document.createElement("canvas"); const bgCtx = bgCanvas.getContext("2d");
+let fontsReady = false;
+async function loadFonts(){
+  if (fontsReady) return;
+  try { await Promise.all([document.fonts.load('64px "Anton"'), document.fonts.load('800 40px "Figtree"')]); } catch (e) {}
+  fontsReady = true;
+}
+function sizeCanvas(q){ const W = q === 1080 ? 1080 : 720; canvas.width = W; canvas.height = Math.round(W * 16 / 9); bgCanvas.width = Math.round(W / 10); bgCanvas.height = Math.round(canvas.height / 10); }
+const ease = x => 1 - Math.pow(1 - x, 3);
+const backOut = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+const HL = "#ffd21f", HL2 = "#5cf08a";
+
+function zoomAt(c, t, o){
+  if (!o.zoom) return 1;
+  const rel = (t - c.start) / Math.max(1, c.end - c.start);
+  let z = 1 + 0.07 * rel;
+  for (const zt of c.zooms) {
+    const d = t - zt;
+    if (d >= 0 && d < 1.4) z += 0.14 * (d < 0.18 ? ease(d / 0.18) : Math.max(0, 1 - ease((d - 0.18) / 1.22)));
+  }
+  return z;
+}
+// Posisi fokus kamera (x,y 0–1) pada waktu t: ikut pembicara.
+// Pembicara sama → bergerak mulus antar titik; pembicara berganti → pindah halus 0,45 dtk.
+function focusPt(c, t, o){
+  const adj = c.adj || 0, tr = c.track || [];
+  const clampP = p => ({ x: Math.max(0, Math.min(1, p.x + adj)), y: Math.max(0, Math.min(1, p.y == null ? 0.42 : p.y)) });
+  if (!o.follow || !tr.length) return clampP({ x: c.focus, y: 0.42 });
+  let i = -1;
+  for (let k = 0; k < tr.length; k++) { if (tr[k].t <= t) i = k; else break; }
+  if (i < 0) return clampP(tr[0]);
+  const p0 = tr[i], p1 = tr[i + 1];
+  let pos = { x: p0.x, y: p0.y == null ? 0.42 : p0.y };
+  if (p1 && p1.s === p0.s && p0.s != null) { const f = Math.min(1, (t - p0.t) / Math.max(0.05, p1.t - p0.t)); pos = { x: p0.x + (p1.x - p0.x) * f, y: (p0.y ?? 0.42) + ((p1.y ?? 0.42) - (p0.y ?? 0.42)) * f }; }
+  // titik ini awal pembicara baru? → transisi dari posisi sebelumnya
+  const prev = tr[i - 1];
+  if (prev && (p0.s == null || prev.s !== p0.s) && t - p0.t < 0.45) {
+    const k = ease((t - p0.t) / 0.45);
+    pos = { x: prev.x + (pos.x - prev.x) * k, y: (prev.y ?? 0.42) + (pos.y - (prev.y ?? 0.42)) * k };
+  }
+  return clampP(pos);
+}
+function focusAt(c, t, o){ return focusPt(c, t, o).x; }
+function drawFrame(c, t, o){
+  const W = canvas.width, H = canvas.height, vw = video.videoWidth, vh = video.videoHeight;
+  const z = zoomAt(c, t, o);
+  ctx.save(); ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+  let videoBottom = H * 0.78, videoTop = 0;
+  if (o.layout === "blur") {
+    // latar blur murah: gambar kecil lalu diperbesar
+    const bw = bgCanvas.width, bh = bgCanvas.height;
+    const sc = Math.max(bw / vw, bh / vh);
+    const sw = bw / sc, sh = bh / sc;
+    bgCtx.drawImage(video, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, bw, bh);
+    ctx.imageSmoothingEnabled = true;
+    try { ctx.filter = "blur(" + Math.round(W / 60) + "px)"; } catch (e) {}
+    ctx.drawImage(bgCanvas, -W * 0.05, -H * 0.05, W * 1.1, H * 1.1);
+    ctx.filter = "none";
+    ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fillRect(0, 0, W, H);
+    const fw = W * z, fh = fw * vh / vw;
+    const cy = H * 0.5;
+    const fx = (W - fw) * focusAt(c, t, o);
+    ctx.drawImage(video, fx, cy - fh / 2, fw, fh);
+    videoTop = cy - (W * vh / vw) / 2; videoBottom = cy + (W * vh / vw) / 2;
+  } else {
+    const base = Math.max(W / vw, H / vh), f = focusPt(c, t, o), cx = f.x * vw, cy = f.y * vh;
+    let sc = base * z;
+    // wajah di pinggir video: perbesar sedikit (maks 1,6×) agar wajah tetap bisa di tengah
+    const half = Math.min(cx, vw - cx);
+    if (o.follow && half > 1 && W / sc > half * 2) sc = Math.min(Math.max(sc, W / (half * 2)), base * 1.6 * z);
+    const sw = W / sc, sh = H / sc;
+    const sx = Math.max(0, Math.min(vw - sw, cx - sw / 2));
+    const sy = Math.max(0, Math.min(vh - sh, cy - sh * 0.4));
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, W, H);
+    // gradasi bawah agar subtitle terbaca
+    const g = ctx.createLinearGradient(0, H * 0.55, 0, H);
+    g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,.45)");
+    ctx.fillStyle = g; ctx.fillRect(0, H * 0.55, W, H * 0.45);
+  }
+  if (o.title && c.title) drawTitle(c.title, o, videoTop);
+  if (o.subs) drawSubs(c, t + 0 - o.shift, o, videoBottom);
+  if (o.emoji) drawEmojis(c, t, o);
+  if (o.bar) { ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.fillRect(0, H - H * 0.008, W, H * 0.008); ctx.fillStyle = HL; ctx.fillRect(0, H - H * 0.008, W * Math.min(1, (t - c.start) / (c.end - c.start)), H * 0.008); }
+  ctx.restore();
+}
+function wrap(text, maxW){
+  const words = text.split(/\s+/).filter(Boolean), lines = []; let cur = [];
+  for (const w of words) {
+    const test = cur.concat(w).join(" ");
+    if (cur.length && ctx.measureText(test).width > maxW) { lines.push(cur); cur = [w]; } else cur.push(w);
+  }
+  if (cur.length) lines.push(cur);
+  return lines;
+}
+function drawTitle(title, o, videoTop){
+  const W = canvas.width, H = canvas.height;
+  const fs = Math.round(W * 0.058);
+  ctx.font = `800 ${fs}px "Figtree", system-ui, sans-serif`;
+  const lines = wrap(title, W * 0.8).slice(0, 3);
+  const lh = fs * 1.22, padX = fs * 0.55, padY = fs * 0.4;
+  const boxH = lines.length * lh + padY * 2;
+  let y = o.layout === "blur" ? Math.max(H * 0.06, videoTop - boxH - H * 0.03) : H * 0.085;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  lines.forEach((ln, i) => {
+    const s = ln.join(" "), w = ctx.measureText(s).width + padX * 2;
+    const ly = y + padY + i * lh;
+    ctx.fillStyle = i === 0 ? HL : "#ffffff";
+    roundRect((W - w) / 2, ly - padY * 0.3, w, lh + padY * 0.6, fs * 0.25); ctx.fill();
+    ctx.fillStyle = "#111"; ctx.fillText(s, W / 2, ly + lh / 2);
+  });
+}
+function roundRect(x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function drawSubs(c, t, o, videoBottom){
+  const cue = c.subs.find(x => t >= x.s && t < Math.max(x.e, x.s + 0.3));
+  if (!cue) return;
+  const W = canvas.width, H = canvas.height;
+  const fs = Math.round(W * 0.088);
+  ctx.font = `${fs}px "Anton", Impact, "Arial Narrow", sans-serif`;
+  ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.lineJoin = "round";
+  const raw = o.upper ? cue.t.toUpperCase() : cue.t;
+  const hls = cue.hl.map(h => (o.upper ? h.toUpperCase() : h).replace(/[^\p{L}\p{N}]/gu, ""));
+  const lines = wrap(raw, W * 0.84);
+  const words = raw.split(/\s+/).filter(Boolean);
+  const dur = Math.max(0.2, cue.e - cue.s);
+  let active = Math.min(words.length - 1, Math.floor((t - cue.s) / dur * words.length));
+  if (cue.w && cue.w.length === words.length) { active = 0; cue.w.forEach((w, k) => { if (t >= w.s - 0.05) active = k; }); }
+  const pop = Math.min(1, (t - cue.s) / 0.14);
+  const sc = 0.82 + 0.18 * backOut(pop);
+  const lh = fs * 1.15;
+  const baseY = o.layout === "blur" ? Math.min(H * 0.84, videoBottom + H * 0.08) : H * 0.7;
+  const top = baseY - (lines.length - 1) * lh / 2;
+  ctx.save(); ctx.translate(W / 2, baseY); ctx.scale(sc, sc); ctx.translate(-W / 2, -baseY);
+  let wi = 0;
+  const space = ctx.measureText(" ").width;
+  lines.forEach((ln, li) => {
+    const lw = ctx.measureText(ln.join(" ")).width;
+    let x = (W - lw) / 2; const y = top + li * lh;
+    ln.forEach(w => {
+      const clean = w.replace(/[^\p{L}\p{N}]/gu, "");
+      const isAct = wi === active, isHl = hls.includes(clean);
+      const ww = ctx.measureText(w).width;
+      ctx.lineWidth = fs * 0.16; ctx.strokeStyle = "#000"; ctx.strokeText(w, x, y);
+      ctx.fillStyle = isAct ? HL : isHl ? HL2 : "#fff";
+      ctx.fillText(w, x, y);
+      x += ww + space; wi++;
+    });
+  });
+  ctx.restore();
+}
+function drawEmojis(c, t, o){
+  const W = canvas.width, H = canvas.height;
+  c.emojis.forEach((em, i) => {
+    const d = t - em.t; if (d < 0 || d > 1.5) return;
+    const s = d < 0.28 ? backOut(d / 0.28) : 1;
+    const a = d > 1.15 ? Math.max(0, (1.5 - d) / 0.35) : 1;
+    const x = i % 2 ? W * 0.78 : W * 0.22, y = H * (o.layout === "blur" ? 0.27 : 0.34) - d * H * 0.02;
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(x, y); ctx.rotate((i % 2 ? 1 : -1) * 0.18); ctx.scale(s, s);
+    ctx.font = `${Math.round(W * 0.17)}px "Apple Color Emoji","Noto Color Emoji","Segoe UI Emoji",sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(em.e, 0, 0);
+    ctx.restore();
+  });
+}
+
+
+
+/* ---------- Thumbnail & hook ---------- */
+const THUMB_STYLES = [["kuning", "Kuning tebal"], ["merah", "Bingkai merah"], ["sorot", "Sorot wajah"]];
+function ensureThumb(c){
+  if (!Array.isArray(c.hooks) || !c.hooks.length) c.hooks = [c.title];
+  if (!Array.isArray(c.thumbT) || !c.thumbT.length) { const d = c.end - c.start; c.thumbT = [0.15, 0.5, 0.8].map(f => c.start + d * f); }
+  if (c.hookIdx == null) c.hookIdx = 0;
+  if (c.thumbIdx == null) c.thumbIdx = 0;
+  if (!c.thumbStyle) c.thumbStyle = settings().thumbStyle || "kuning";
+  if (!c.thumbEmoji) c.thumbEmoji = (c.emojis && c.emojis[0] && c.emojis[0].e) || "🔥";
+}
+function hookText(c){ ensureThumb(c); return (c.hookIdx === -1 ? (c.hookCustom || "") : c.hooks[c.hookIdx] || c.title).trim(); }
+
+// Ambil 3 frame kandidat thumbnail dari potongan video klip
+async function captureFrames(c, sayFn){
+  ensureThumb(c);
+  await loadClipSource(c, sayFn);
+  const vw = video.videoWidth, vh = video.videoHeight, k = Math.min(1, 1280 / Math.max(vw, vh));
+  c.frames = [];
+  for (const t of c.thumbT) {
+    await seek(Math.max(c.start, Math.min(c.end - 0.1, t)));
+    const fc = document.createElement("canvas"); fc.width = Math.round(vw * k); fc.height = Math.round(vh * k);
+    fc.getContext("2d").drawImage(video, 0, 0, fc.width, fc.height);
+    c.frames.push({ t, cv: fc });
+  }
+}
+function fitLines(g, text, maxW, maxLines, size, font){
+  for (let fs = size; fs > size * 0.4; fs *= 0.92) {
+    g.font = font(fs);
+    const words = text.split(/\s+/).filter(Boolean), lines = []; let cur = [];
+    for (const w of words) { const t = cur.concat(w).join(" "); if (cur.length && g.measureText(t).width > maxW) { lines.push(cur); cur = [w]; } else cur.push(w); }
+    if (cur.length) lines.push(cur);
+    if (lines.length <= maxLines && lines.every(l => g.measureText(l.join(" ")).width <= maxW)) return { fs, lines };
+  }
+  g.font = font(size * 0.4); return { fs: size * 0.4, lines: [text.split(/\s+/)] };
+}
+function keyWords(words){ // 1–2 kata terpanjang diberi warna sorot
+  const sorted = [...new Set(words.map(w => w.replace(/[^\p{L}\p{N}]/gu, "")))].sort((a, b) => b.length - a.length);
+  return new Set(sorted.slice(0, words.length > 5 ? 2 : 1));
+}
+function drawThumb(g, W, H, c, idx, style, hook){
+  const fr = c.frames && c.frames[idx];
+  g.save(); g.fillStyle = "#111"; g.fillRect(0, 0, W, H);
+  let faceX = W / 2, faceY = H * 0.36;
+  if (fr) {
+    const fw = fr.cv.width, fh = fr.cv.height, fx = focusAt(c, fr.t, { follow: true });
+    const sc = Math.max(W / fw, H / fh) * 1.12, sw = W / sc, sh = H / sc;
+    const sx = Math.max(0, Math.min(fw - sw, fx * fw - sw / 2)), sy = Math.max(0, Math.min(fh - sh, fh * 0.45 - sh / 2));
+    g.drawImage(fr.cv, sx, sy, sw, sh, 0, 0, W, H);
+    faceX = Math.max(W * 0.22, Math.min(W * 0.78, (fx * fw - sx) * sc));
+  } else {
+    const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, "#2a2f3a"); bg.addColorStop(1, "#111318");
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  }
+  const text = (hook || c.title).toUpperCase();
+  const anton = fs => `${Math.round(fs)}px "Anton", Impact, "Arial Narrow", sans-serif`;
+  g.textAlign = "center"; g.textBaseline = "middle"; g.lineJoin = "round";
+  const pad = W * 0.06;
+  if (style === "merah") {
+    const gr = g.createLinearGradient(0, H * 0.5, 0, H); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,.7)");
+    g.fillStyle = gr; g.fillRect(0, H * 0.5, W, H * 0.5);
+    const { fs, lines } = fitLines(g, text, W - pad * 3, 4, W * 0.13, anton);
+    const lh = fs * 1.08, boxH = lines.length * lh + fs * 0.5, y0 = H * 0.86 - boxH;
+    g.fillStyle = "#e3262b"; g.save(); g.translate(W / 2, y0 + boxH / 2); g.rotate(-0.025);
+    g.fillRect(-W / 2 + pad, -boxH / 2, W - pad * 2, boxH); g.restore();
+    lines.forEach((l, i) => { g.fillStyle = "#fff"; g.fillText(l.join(" "), W / 2, y0 + fs * 0.25 + lh * (i + 0.5)); });
+    const b = W * 0.028; g.strokeStyle = "#e3262b"; g.lineWidth = b; g.strokeRect(b / 2, b / 2, W - b, H - b);
+  } else {
+    const gr = g.createLinearGradient(0, H * 0.45, 0, H); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,.85)");
+    g.fillStyle = gr; g.fillRect(0, H * 0.45, W, H * 0.55);
+    if (style === "sorot" && fr) {
+      g.fillStyle = "rgba(0,0,0,.28)"; g.fillRect(0, 0, W, H);
+      const r = W * 0.24;
+      g.lineWidth = W * 0.022; g.strokeStyle = "#ffd21f"; g.beginPath(); g.arc(faceX, faceY, r, 0, Math.PI * 2); g.stroke();
+      // panah melengkung dari teks ke lingkaran
+      const ax = faceX > W / 2 ? faceX - r * 1.25 : faceX + r * 1.25, ay = faceY + r * 1.1;
+      g.beginPath(); g.moveTo(W / 2, H * 0.62); g.quadraticCurveTo(ax, H * 0.6, ax, ay); g.stroke();
+      const ang = Math.atan2(ay - H * 0.6, 0) || -Math.PI / 2, hl = W * 0.05;
+      g.beginPath(); g.moveTo(ax, ay - hl * 0.2); g.lineTo(ax - hl * 0.7, ay + hl); g.moveTo(ax, ay - hl * 0.2); g.lineTo(ax + hl * 0.7, ay + hl); g.stroke();
+    }
+    const { fs, lines } = fitLines(g, text, W - pad * 2, 4, W * 0.14, anton);
+    const lh = fs * 1.05, y0 = H * 0.9 - lines.length * lh;
+    const kw = keyWords(text.split(/\s+/)), space = g.measureText(" ").width;
+    lines.forEach((l, i) => {
+      const lw = g.measureText(l.join(" ")).width; let x = (W - lw) / 2; const y = y0 + lh * (i + 0.5);
+      g.textAlign = "left";
+      l.forEach(w => { const ww = g.measureText(w).width; g.lineWidth = fs * 0.14; g.strokeStyle = "#000"; g.strokeText(w, x, y);
+        g.fillStyle = kw.has(w.replace(/[^\p{L}\p{N}]/gu, "")) ? "#ffd21f" : "#fff"; g.fillText(w, x, y); x += ww + space; });
+      g.textAlign = "center";
+    });
+  }
+  // emoji besar
+  g.save(); g.translate(faceX > W / 2 ? W * 0.2 : W * 0.8, H * 0.14); g.rotate(faceX > W / 2 ? -0.2 : 0.2);
+  g.font = `${Math.round(W * 0.2)}px "Apple Color Emoji","Noto Color Emoji","Segoe UI Emoji",sans-serif`;
+  g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(c.thumbEmoji || "🔥", 0, 0); g.restore();
+  g.restore();
+}
+function paintThumbs(c, box){
+  if (!box) return;
+  box.querySelectorAll("button.thumb").forEach(b => {
+    const k = +b.dataset.k, cv = b.querySelector("canvas");
+    drawThumb(cv.getContext("2d"), cv.width, cv.height, c, k, c.thumbStyle, hookText(c));
+    b.setAttribute("aria-pressed", String(c.thumbIdx === k));
+  });
+}
+function makeThumbCanvas(c, W, H){
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  drawThumb(cv.getContext("2d"), W, H, c, c.thumbIdx, c.thumbStyle, hookText(c)); return cv;
+}
+async function thumbBlob(c){
+  if (!c.frames) await captureFrames(c);
+  const W = settings().quality === 1080 ? 1080 : 720, cv = makeThumbCanvas(c, W, Math.round(W * 16 / 9));
+  return await new Promise(r => cv.toBlob(r, "image/png"));
+}
+
+/* ---------- Suara hook (Gemini TTS) ---------- */
+const ttsCache = new Map();
+async function ttsBuffer(text, voice){
+  const key = voice + "|" + text;
+  if (ttsCache.has(key)) return ttsCache.get(key);
+  const apiKey = store.get("key", "");
+  if (!apiKey) throw new Error("API key Gemini belum diisi.");
+  ensureAudio();
+  let lastErr = "";
+  for (const model of ["gemini-3.1-flash-tts-preview", "gemini-2.5-flash-preview-tts"]) {
+    let res;
+    try {
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: "Bacakan dengan nada bersemangat dan bikin penasaran, seperti pembuka video viral: " + text }] }],
+          generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } } })
+      });
+    } catch (e) { throw new Error("Tidak bisa terhubung ke Gemini untuk membuat suara."); }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { lastErr = res.status === 429 ? "Kuota suara Gemini habis sementara. Coba lagi nanti." : ((data.error && data.error.message) || "error " + res.status); if (res.status === 404 || res.status === 400) continue; throw new Error(lastErr); }
+    const part = (((data.candidates || [])[0] || {}).content || { parts: [] }).parts.find(p => p.inlineData);
+    if (!part) { lastErr = "Gemini tidak mengirim suara."; continue; }
+    const bin = atob(part.inlineData.data), n = bin.length >> 1;
+    const rate = +((part.inlineData.mimeType || "").match(/rate=(\d+)/) || [0, 24000])[1];
+    const buf = audioCtx.createBuffer(1, n, rate), ch = buf.getChannelData(0);
+    for (let j = 0; j < n; j++) { let v = bin.charCodeAt(2 * j) | (bin.charCodeAt(2 * j + 1) << 8); if (v >= 32768) v -= 65536; ch[j] = v / 32768; }
+    ttsCache.set(key, buf);
+    return buf;
+  }
+  throw new Error("Gagal membuat suara hook: " + lastErr);
+}
+async function playHook(c){
+  ensureAudio(); await audioCtx.resume();
+  const buf = await ttsBuffer(hookText(c), settings().voice);
+  const s = audioCtx.createBufferSource(); s.buffer = buf; s.connect(audioCtx.destination); s.start();
+  return new Promise(r => s.onended = r);
+}
+
+/* ---------- Render (canvas → MediaRecorder) ---------- */
+let rendering = false, cancelFlag = false, audioCtx = null, audioDest = null, monitorGain = null, wakeLock = null;
+function pickMime(){
+  const list = ['video/mp4;codecs="avc1.42E01E,mp4a.40.2"', "video/mp4;codecs=avc1,mp4a", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
+  return list.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || "";
+}
+function ensureAudio(){
+  if (audioCtx) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AC();
+  const src = audioCtx.createMediaElementSource(video);
+  audioDest = audioCtx.createMediaStreamDestination();
+  src.connect(audioDest); // ke perekam
+  monitorGain = audioCtx.createGain(); monitorGain.gain.value = 0;
+  src.connect(monitorGain); monitorGain.connect(audioCtx.destination); // ke speaker hanya saat pratinjau
+}
+async function renderOne(c, o, intro, prog){
+  prog = prog || (() => {});
+  sizeCanvas(o.quality);
+  await seek(c.start);
+  const thumbCv = intro ? makeThumbCanvas(c, canvas.width, canvas.height) : null;
+  if (thumbCv) ctx.drawImage(thumbCv, 0, 0); else drawFrame(c, c.start, o);
+  const stream = canvas.captureStream(30);
+  audioDest.stream.getAudioTracks().forEach(tr => stream.addTrack(tr));
+  const mime = pickMime();
+  const rec = new MediaRecorder(stream, Object.assign({ videoBitsPerSecond: o.quality === 1080 ? 9e6 : 5e6, audioBitsPerSecond: 128000 }, mime ? { mimeType: mime } : {}));
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+  const stopped = new Promise(r => rec.onstop = r);
+  const onVis = () => {
+    if (document.hidden) { video.pause(); if (rec.state === "recording") rec.pause(); }
+    else if (rec.state === "paused") { rec.resume(); video.play(); }
+  };
+  document.addEventListener("visibilitychange", onVis);
+  rec.start(500);
+  // Intro: thumbnail tampil sambil hook dibacakan, lalu video mulai
+  if (thumbCv) {
+    let dur = 2.2, src = null;
+    if (intro.buf) { src = audioCtx.createBufferSource(); src.buffer = intro.buf; src.connect(audioDest); dur = intro.buf.duration + 0.5; }
+    const t0 = performance.now();
+    if (src) src.start();
+    await new Promise(res => {
+      const loop = () => {
+        const el = (performance.now() - t0) / 1000, W = canvas.width, H = canvas.height;
+        const z = 1 + 0.05 * Math.min(1, el / dur), pop = el < 0.25 ? 0.92 + 0.08 * backOut(el / 0.25) : 1;
+        ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+        ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(z * pop, z * pop); ctx.drawImage(thumbCv, -W / 2, -H / 2); ctx.restore();
+        if (el > dur - 0.18) { ctx.fillStyle = `rgba(255,255,255,${Math.min(1, (el - dur + 0.18) / 0.18) * 0.6})`; ctx.fillRect(0, 0, W, H); }
+        prog(`Intro hook ${el.toFixed(1)} / ${dur.toFixed(1)} dtk`, 0);
+        if (el >= dur || cancelFlag) return res();
+        requestAnimationFrame(loop);
+      };
+      requestAnimationFrame(loop);
+    });
+    try { src && src.stop(); } catch (e) {}
+  }
+  video.muted = false; video.volume = 1; video.playbackRate = 1;
+  await video.play();
+  await new Promise(resolve => {
+    const loop = () => {
+      const t = video.currentTime + srcOffset;
+      drawFrame(c, t, o);
+      const p = Math.min(1, (t - c.start) / (c.end - c.start));
+      prog(`Merekam ${fmt(t - c.start)} / ${fmt(c.end - c.start)}${document.hidden ? " (dijeda, buka lagi halaman ini)" : ""}`, Math.max(0, p));
+      if (t >= c.end - 0.04 || video.ended || cancelFlag) return resolve();
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  });
+  video.pause();
+  if (rec.state !== "inactive") rec.stop();
+  await stopped;
+  document.removeEventListener("visibilitychange", onVis);
+  stream.getVideoTracks().forEach(tr => tr.stop());
+  if (cancelFlag) return null;
+  const type = (mime || "video/webm").split(";")[0];
+  return new Blob(chunks, { type });
+}
+
+
+/* ===== Data proyek ===== */
+let projects = store.get("projects", null);
+if (!Array.isArray(projects)) {
+  projects = [];
+  const last = store.get("last", null); // pindahkan hasil versi lama menjadi proyek
+  if (last && last.vid && Array.isArray(last.clips) && last.clips.length) {
+    projects.push({ id: uid(), vid: last.vid, title: last.title || "Proyek lama", created: Date.now(), style: {}, clips: last.clips.map(c => Object.assign(c, { id: uid(), vid: last.vid })) });
+  }
+}
+projects.forEach(p => p.clips.forEach(c => { c.seg = null; c.frames = null; if (!c.id) c.id = uid(); c.vid = p.vid; }));
+const RUNTIME = ["seg", "frames"];
+function saveProjects(){
+  store.set("projects", projects.map(p => Object.assign({}, p, { clips: p.clips.map(c => { const o = Object.assign({}, c); RUNTIME.forEach(k => delete o[k]); return o; }) })));
+  updateCounts();
+}
+const findProject = id => projects.find(p => p.id === id);
+function deleteProject(id){
+  projects = projects.filter(p => p.id !== id); saveProjects(); toast("Proyek dihapus");
+}
+function deleteClip(p, cid){ p.clips = p.clips.filter(c => c.id !== cid); saveProjects(); toast("Klip dihapus"); }
+
+/* ===== Hasil ekspor (IndexedDB, tersimpan di perangkat) ===== */
+let dbP = null;
+function db(){
+  if (!dbP) dbP = new Promise((res, rej) => {
+    const r = indexedDB.open("clipper-studio", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("exports", { keyPath: "id" });
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  return dbP;
+}
+async function idb(mode, fn){
+  const d = await db();
+  return new Promise((res, rej) => { const tx = d.transaction("exports", mode); const st = tx.objectStore("exports"); const out = fn(st);
+    tx.oncomplete = () => res(out && out.result !== undefined ? out.result : out); tx.onerror = () => rej(tx.error); });
+}
+const exportsAll = () => idb("readonly", st => st.getAll()).then(a => (a || []).sort((x, y) => y.created - x.created)).catch(() => []);
+const exportPut = rec => idb("readwrite", st => st.put(rec));
+const exportDel = id => idb("readwrite", st => st.delete(id));
+let exportCount = 0;
+
+/* ===== Antrian tugas ===== */
+const tasks = [];
+function addTask(label, kind){
+  const t = { id: uid(), label, kind, status: "run", msg: "Menunggu…", p: 0, cancel: null };
+  tasks.unshift(t); drawTasks(); return t;
+}
+function updTask(t, msg, p){ if (msg != null) t.msg = msg; if (p != null) t.p = Math.max(0, Math.min(1, p)); drawTasks(); }
+function endTask(t, ok, msg){ t.status = ok ? "done" : "err"; t.msg = msg || (ok ? "Selesai" : "Gagal"); t.p = 1; t.cancel = null; drawTasks(); }
+function removeTask(id){ const i = tasks.findIndex(t => t.id === id); if (i >= 0) tasks.splice(i, 1); drawTasks(); }
+function taskHTML(t){
+  return `<div class="task ${t.status}" data-id="${t.id}">
+    <div class="task-top"><i class="dot"></i><span title="${esc(t.label)}">${esc(t.label)}</span>
+      ${t.status === "run" && t.cancel ? `<button class="btn ghost sm" data-cancel="${t.id}">Batal</button>` : ""}
+      ${t.status !== "run" ? `<button class="btn ghost sm" data-rm="${t.id}" aria-label="Hapus dari antrian">✕</button>` : ""}</div>
+    <div class="prog"><i style="width:${(t.p * 100).toFixed(0)}%"></i></div>
+    <div class="msg">${esc(t.msg)}</div></div>`;
+}
+function bindTaskButtons(box){
+  box.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => removeTask(b.dataset.rm));
+  box.querySelectorAll("[data-cancel]").forEach(b => b.onclick = () => { const t = tasks.find(x => x.id === b.dataset.cancel); t && t.cancel && t.cancel(); });
+}
+function drawTasks(){
+  const running = tasks.filter(t => t.status === "run").length;
+  document.body.classList.toggle("busy", running > 0);
+  for (const id of ["sideTasks", "homeTasks"]) {
+    const box = $(id); if (!box) continue;
+    box.innerHTML = tasks.length ? tasks.slice(0, 12).map(taskHTML).join("") : `<p class="hint" style="padding:0 10px">Belum ada tugas berjalan.</p>`;
+    bindTaskButtons(box);
+  }
+  const b = $("tabTaskBadge"); if (b) { b.hidden = !running; b.textContent = running; }
+}
+function updateCounts(){
+  const pc = $("navProjCount"); if (pc) pc.textContent = projects.length || "";
+  const ec = $("navExpCount"); if (ec) ec.textContent = exportCount || "";
+}
+async function refreshExportCount(){ exportCount = (await exportsAll()).length; updateCounts(); }
+
+/* ===== Tema & tampilan ===== */
+const themeName = { auto: "Otomatis", dark: "Gelap", light: "Terang" };
+function applyTheme(){
+  const t = settings().theme;
+  if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t);
+  $("themeBtn").textContent = "Tema: " + themeName[t];
+}
+$("themeBtn").onclick = () => { const order = ["auto", "dark", "light"]; setSetting("theme", order[(order.indexOf(settings().theme) + 1) % 3]); applyTheme(); };
+const vp = $("vp"), vpDefault = vp.getAttribute("content");
+function applyView(){
+  const view = settings().view;
+  const w = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+  const physical = screen && screen.width ? Math.min(screen.width, w || screen.width) : w;
+  const layout = view === "desktop" ? "desktop" : view === "mobile" ? "mobile" : (w >= 1100 ? "desktop" : w >= 760 ? "tablet" : "mobile");
+  const want = view === "desktop" && physical < 1100 ? "width=1280, viewport-fit=cover" : vpDefault;
+  if (vp.getAttribute("content") !== want) vp.setAttribute("content", want);
+  const root = document.documentElement;
+  root.setAttribute("data-layout", layout);
+  if (view === "auto") root.removeAttribute("data-view"); else root.setAttribute("data-view", view);
+  if (physical < 760) root.setAttribute("data-small", ""); else root.removeAttribute("data-small");
+  document.querySelectorAll('input[name=viewSide],input[name=viewSet]').forEach(r => r.checked = r.value === view);
+}
+function setView(v){ setSetting("view", v); applyView(); }
+document.querySelectorAll("input[name=viewSide]").forEach(r => r.onchange = () => setView(r.value));
+window.addEventListener("resize", () => { if (settings().view === "auto") applyView(); });
+
+
+/* ===== Subtitle akurat (Whisper) & jalur kamera (deteksi wajah) dari GitHub ===== */
+// Kelompokkan kata Whisper jadi potongan subtitle pendek yang enak dibaca
+function wordsToCues(words){
+  const cues = []; let cur = [];
+  const flush = () => { if (cur.length) cues.push({ s: cur[0].s, e: cur[cur.length - 1].e, t: cur.map(w => w.w).join(" "), hl: [], w: cur.map(w => ({ s: w.s, e: w.e })) }); cur = []; };
+  words.forEach((w, i) => {
+    const prev = cur[cur.length - 1];
+    const chars = cur.reduce((a, x) => a + x.w.length + 1, 0) + w.w.length;
+    if (prev && (cur.length >= 4 || chars > 24 || w.s - prev.e > 0.45 || /[.?!,;:]$/.test(prev.w))) flush();
+    cur.push(w);
+  });
+  flush();
+  // tutup jeda kecil supaya teks tidak berkedip
+  for (let i = 0; i < cues.length - 1; i++) if (cues[i + 1].s - cues[i].e < 0.3) cues[i].e = cues[i + 1].s;
+  return cues;
+}
+// Tandai kata penting: pakai pilihan Gemini sebelumnya bila cocok, kalau tidak kata terpanjang
+function markHighlights(cues, oldSubs){
+  const want = new Set((oldSubs || []).flatMap(x => x.hl || []).map(h => h.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "")));
+  cues.forEach(c => {
+    const ws = c.t.split(/\s+/).map(w => w.replace(/[^\p{L}\p{N}]/gu, ""));
+    const hit = ws.filter(w => want.has(w.toLowerCase()));
+    c.hl = hit.length ? hit.slice(0, 2) : [];
+  });
+}
+async function geminiText(prompt){
+  const key = store.get("key", ""); if (!key) throw new Error("API key Gemini belum diisi.");
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(settings().model || "gemini-2.5-flash")}:generateContent?key=${encodeURIComponent(key)}`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.3 } }) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(explainError(res.status, data));
+  const text = ((((data.candidates || [])[0] || {}).content || {}).parts || []).filter(p => !p.thought && p.text).map(p => p.text).join("");
+  return JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, ""));
+}
+// Terjemahkan per baris dengan konteks penuh; jumlah & urutan baris dijaga agar waktu tetap sinkron
+async function translateCues(cues, fromLang){
+  const lines = cues.map((c, i) => `${i + 1}. ${c.t}`).join("\n");
+  const out = await geminiText(`Kamu penerjemah subtitle video pendek. Terjemahkan setiap baris berikut (bahasa sumber: ${fromLang || "deteksi otomatis"}) ke Bahasa Indonesia percakapan yang natural dan akurat sesuai konteks keseluruhan.
+ATURAN: jumlah baris keluaran HARUS ${cues.length}, urutan sama, satu baris keluaran = terjemahan baris dengan nomor yang sama. Singkat (idealnya maks 5 kata). Jangan menambah informasi.
+Untuk tiap baris, pilih 0–1 kata paling penting dari terjemahanmu sebagai "hl".
+Balas JSON: {"lines":[{"t":"terjemahan","hl":["kata"]}]}
+
+${lines}`);
+  const arr = out && out.lines;
+  if (!Array.isArray(arr) || arr.length !== cues.length) throw new Error("Terjemahan tidak lengkap");
+  return cues.map((c, i) => ({ s: c.s, e: c.e, t: String(arr[i].t || c.t).trim(), hl: (arr[i].hl || []).map(String), tr: true }));
+}
+async function applyMeta(c, meta){
+  if (Array.isArray(meta.track) && meta.track.length) { c.track = meta.track; c.trackSource = "wajah"; }
+  if (Array.isArray(meta.words) && meta.words.length) {
+    let cues = wordsToCues(meta.words);
+    markHighlights(cues, c.subs);
+    c.lang = meta.lang || "";
+    if (c.subLang === "id" && c.lang && c.lang !== "id") {
+      try { cues = await translateCues(cues, c.lang); c.subsSource = "whisper+terjemah"; }
+      catch (e) { c.subsSource = "whisper"; toast("Terjemahan gagal, subtitle memakai bahasa asli: " + e.message); }
+    } else c.subsSource = "whisper";
+    c.subs = cues;
+  }
+  saveProjects();
+}
+
+
+/* ===== Analisis Gemini → proyek baru ===== */
+async function analyzeToProject(form, task){
+  const key = store.get("key", "");
+  if (!key) throw new Error("API key Gemini belum diisi. Buka Pengaturan.");
+  const id = ytId(form.url);
+  if (!id) throw new Error("Link YouTube tidak dikenali. Contoh: https://youtu.be/abc123XYZ00");
+  if (form.min > form.max) throw new Error("Durasi minimum lebih besar dari maksimum.");
+  const model = settings().model || "gemini-2.5-flash";
+  const t0 = Date.now();
+  const tick = setInterval(() => updTask(task, `Gemini menonton video… ${Math.round((Date.now() - t0) / 1000)} dtk`, Math.min(0.9, (Date.now() - t0) / 120000)), 1000);
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+  const body = lowRes => JSON.stringify({
+    contents: [{ role: "user", parts: [{ fileData: { fileUri: "https://www.youtube.com/watch?v=" + id } }, { text: buildPrompt(form) }] }],
+    generationConfig: Object.assign({ responseMimeType: "application/json", temperature: 0.7 }, lowRes ? { mediaResolution: "MEDIA_RESOLUTION_LOW" } : {})
+  });
+  try {
+    let res;
+    try {
+      res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body(true) });
+      if (res.status === 400) { const peek = await res.clone().text(); if (/mediaResolution|media_resolution/i.test(peek)) res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body(false) }); }
+    } catch (e) { throw new Error("Tidak bisa terhubung ke Gemini. Cek internet, lalu coba lagi."); }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(explainError(res.status, data));
+    const cand = data.candidates && data.candidates[0];
+    if (!cand || !cand.content) throw new Error(cand && cand.finishReason ? `Gemini berhenti (${cand.finishReason}). Coba lagi atau kurangi jumlah klip.` : "Gemini tidak mengirim jawaban. Coba lagi.");
+    const text = cand.content.parts.filter(p => !p.thought && p.text).map(p => p.text).join("");
+    let json;
+    try { json = JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch (e) { throw new Error("Jawaban Gemini terpotong. Coba lagi."); }
+    const clips = normalize(json.clips || [], form);
+    if (!clips.length) throw new Error("Gemini tidak menemukan klip yang cocok. Coba ubah durasi atau jenis konten.");
+    const p = { id: uid(), vid: id, title: json.video_title || "Video YouTube", created: Date.now(), mode: form.mode, style: {}, clips: [] };
+    clips.forEach(c => { c.id = uid(); c.vid = id; c.subLang = form.subLang; ensureThumb(c); p.clips.push(c); });
+    projects.unshift(p); saveProjects();
+    return p;
+  } finally { clearInterval(tick); }
+}
+
+// Ambil video klip lewat GitHub sebagai satu tugas di antrian
+function fetchTask(p, list){
+  list = list.filter(c => !(c.seg && c.seg.key === segKey(c)));
+  if (!list.length || !srvOk()) return Promise.resolve();
+  const t = addTask(`Ambil video · ${list.length} klip`, "fetch");
+  progressFn = m => updTask(t, m, null);
+  const started = Date.now();
+  const tick = setInterval(() => { if (t.status === "run") updTask(t, null, Math.min(0.9, (Date.now() - started) / 180000)); }, 2000);
+  return Promise.allSettled(fetchSegments(list)).then(r => {
+    clearInterval(tick);
+    const bad = r.filter(x => x.status === "rejected");
+    if (bad.length === r.length) endTask(t, false, bad[0].reason.message);
+    else endTask(t, true, bad.length ? `${r.length - bad.length} siap, ${bad.length} gagal: ${bad[0].reason.message}` : "Video siap diedit");
+    if (route.name === "edit" || route.name === "project") rerender();
+  });
+}
+
+/* ===== Router ===== */
+let route = { name: "home" };
+function parseRoute(){
+  const h = (location.hash || "#home").slice(1).split("/");
+  if (h[0] === "p" && h[1]) return { name: "project", pid: h[1] };
+  if (h[0] === "edit" && h[1] && h[2]) return { name: "edit", pid: h[1], cid: h[2] };
+  return { name: ["home", "new", "projects", "exports", "settings"].includes(h[0]) ? h[0] : "home" };
+}
+function go(hash){ if (location.hash === hash) rerender(); else location.hash = hash; }
+window.addEventListener("hashchange", rerender);
+function rerender(){
+  if (route.name === "edit" && typeof leaveEditor === "function") leaveEditor();
+  route = parseRoute();
+  const navKey = route.name === "project" || route.name === "edit" ? "projects" : route.name;
+  document.querySelectorAll("#nav a, #tabbar a").forEach(a => a.setAttribute("aria-current", a.dataset.r === navKey ? "page" : "false"));
+  document.body.classList.toggle("in-editor", route.name === "edit");
+  const v = $("view"); v.scrollTop = 0; window.scrollTo(0, 0);
+  ({ home: viewHome, new: viewNew, projects: viewProjects, project: viewProject, edit: viewEditor, exports: viewExports, settings: viewSettings })[route.name](v);
+  drawTasks(); updateCounts(); placeCanvas();
+}
+
+/* ===== Beranda ===== */
+const ytThumb = vid => `https://i.ytimg.com/vi/${vid}/mqdefault.jpg`;
+const fmtDate = t => new Date(t).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+function projCard(p){
+  const avg = p.clips.length ? Math.round(p.clips.reduce((a, c) => a + c.score, 0) / p.clips.length) : 0;
+  return `<article class="card proj" data-open="${p.id}">
+    <div class="cover" style="background-image:url('${ytThumb(p.vid)}')"><span class="pill">${p.clips.length} klip</span></div>
+    <div class="body"><h3>${esc(p.title)}</h3>
+      <div class="row"><span>${fmtDate(p.created)}</span><span>·</span><span>skor rata-rata ${avg}</span>
+        <button class="btn danger sm" data-del="${p.id}" aria-label="Hapus proyek">Hapus</button></div></div></article>`;
+}
+function bindProjCards(box){
+  box.querySelectorAll("[data-open]").forEach(el => el.onclick = () => go("#p/" + el.dataset.open));
+  box.querySelectorAll("[data-del]").forEach(b => armDelete(b, () => { deleteProject(b.dataset.del); rerender(); }));
+}
+async function viewHome(v){
+  const clips = projects.reduce((a, p) => a + p.clips.length, 0);
+  const keyOk = !!store.get("key", ""), ghOk = srvOk();
+  v.innerHTML = `<div class="page">
+    <div class="page-h"><div class="grow"><h1>Beranda</h1><p>Ringkasan proyek klip dan tugas yang sedang berjalan.</p></div>
+      <a class="btn lg" href="#new"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Proyek baru</a></div>
+    <div class="stats">
+      <div class="card stat"><small>Proyek</small><b>${projects.length}</b><span>video YouTube dianalisis</span></div>
+      <div class="card stat"><small>Momen</small><b>${clips}</b><span>klip ditemukan AI</span></div>
+      <div class="card stat"><small>Hasil ekspor</small><b id="stExp">…</b><span>video siap posting</span></div>
+      <div class="card stat"><small>Penyimpanan</small><b id="stDisk">…</b><span>dipakai di perangkat ini</span></div>
+    </div>
+    <div class="home-grid">
+      <section class="card"><div class="card-h"><h2>Proyek terbaru</h2><a class="meta" href="#projects">Lihat semua</a></div>
+        <div class="card-b">${projects.length ? `<div class="projects" id="homeProj">${projects.slice(0, 6).map(projCard).join("")}</div>`
+          : `<div class="empty"><b>Belum ada proyek</b>Tempel link YouTube dan AI akan mencarikan momen terbaik untuk dijadikan klip.<br><a class="btn" href="#new">Mulai proyek pertama</a></div>`}</div></section>
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        ${keyOk && ghOk ? "" : `<section class="card"><div class="card-h"><h2>Siapkan studio</h2></div><div class="card-b checklist">
+          <div class="check ${keyOk ? "done" : ""}"><i></i>API key Gemini</div>
+          <div class="check ${ghOk ? "done" : ""}"><i></i>Repo & token GitHub</div>
+          <a class="btn sec sm" href="#settings">Buka pengaturan</a></div></section>`}
+        <section class="card"><div class="card-h"><h2>Antrian tugas</h2><span class="meta">${tasks.filter(t => t.status === "run").length} berjalan</span></div>
+          <div class="card-b" id="homeTasks" style="gap:8px"></div></section>
+      </div>
+    </div></div>`;
+  const hp = $("homeProj"); if (hp) bindProjCards(hp);
+  const ex = await exportsAll(); exportCount = ex.length; if ($("stExp")) $("stExp").textContent = ex.length; updateCounts();
+  try { const e = await navigator.storage.estimate(); if ($("stDisk")) $("stDisk").textContent = (e.usage / 1048576).toFixed(0) + " MB"; } catch (e) { if ($("stDisk")) $("stDisk").textContent = "–"; }
+  drawTasks();
+}
+
+/* ===== Proyek baru ===== */
+function viewNew(v){
+  const f = Object.assign({ n: 5, min: 30, max: 120, mode: "pintar", subLang: "asli", extra: "" }, store.get("newForm", {}));
+  v.innerHTML = `<div class="page">
+    <div class="page-h"><div class="grow"><h1>Proyek baru</h1><p>Tempel link YouTube. AI menonton videonya dan memilih momen paling berpotensi viral.</p></div></div>
+    <div class="new-grid">
+      <section class="card"><div class="card-b">
+        <div class="field"><label class="lbl" for="nUrl">Link YouTube</label>
+          <div class="url-row"><input type="url" id="nUrl" placeholder="https://youtu.be/…" inputmode="url" autocomplete="off">
+          <button class="btn lg" id="nGo" type="button">Cari momen terbaik</button></div></div>
+        <div class="status" id="nStatus"></div>
+        <div class="grid3">
+          <div class="field"><label class="lbl" for="nN">Jumlah klip</label><input type="number" id="nN" min="1" max="15" value="${f.n}"></div>
+          <div class="field"><label class="lbl" for="nMin">Durasi min (dtk)</label><input type="number" id="nMin" min="10" max="600" value="${f.min}"></div>
+          <div class="field"><label class="lbl" for="nMax">Durasi maks (dtk)</label><input type="number" id="nMax" min="15" max="600" value="${f.max}"></div>
+        </div>
+        <div class="chips" id="nDur">${[[30, 60, "30–60 dtk"], [45, 90, "45–90 dtk"], [60, 120, "1–2 mnt"], [30, 120, "30 dtk–2 mnt"]].map(([a, b, l]) => `<button class="btn sec sm" type="button" data-a="${a}" data-b="${b}">${l}</button>`).join("")}</div>
+        <div class="field"><label class="lbl">Jenis konten</label><div class="chips">
+          ${[["pintar", "Mode pintar"], ["biasa", "Konten biasa"], ["quotes", "Quotes"], ["film", "Film / Kartun"]].map(([v2, l]) => `<label class="chip"><input type="radio" name="nMode" value="${v2}" ${f.mode === v2 ? "checked" : ""}><span>${l}</span></label>`).join("")}</div></div>
+        <div class="field"><label class="lbl">Bahasa subtitle</label><div class="chips">
+          <label class="chip"><input type="radio" name="nLang" value="asli" ${f.subLang === "asli" ? "checked" : ""}><span>Bahasa asli video</span></label>
+          <label class="chip"><input type="radio" name="nLang" value="id" ${f.subLang === "id" ? "checked" : ""}><span>Terjemah ke Indonesia</span></label></div></div>
+        <div class="field"><label class="lbl" for="nExtra">Catatan untuk AI (opsional)</label><textarea id="nExtra" placeholder="Contoh: fokus ke bagian lucu, hindari iklan sponsor">${esc(f.extra)}</textarea></div>
+      </div></section>
+      <aside class="card"><div class="card-h"><h2>Yang akan terjadi</h2></div><div class="card-b">
+        <div class="checklist">
+          <div class="check"><i></i>Gemini menonton video dan memilih momen, hook, serta posisi pembicara</div>
+          <div class="check"><i></i>GitHub mengambil potongan video semua klip sekaligus</div>
+          <div class="check"><i></i>Kamu mengedit tiap klip di editor, lalu ekspor</div>
+        </div>
+        <p class="hint">Proses berjalan di antrian tugas. Kamu bisa pindah halaman selama menunggu.</p>
+      </div></aside>
+    </div></div>`;
+  $("nDur").querySelectorAll("button").forEach(b => b.onclick = () => { $("nMin").value = b.dataset.a; $("nMax").value = b.dataset.b; });
+  $("nGo").onclick = async () => {
+    const form = { url: $("nUrl").value.trim(), n: Math.max(1, Math.min(15, parseInt($("nN").value) || 5)), min: Math.max(5, +$("nMin").value || 30), max: Math.max(10, +$("nMax").value || 120),
+      mode: (document.querySelector("input[name=nMode]:checked") || {}).value || "pintar", subLang: (document.querySelector("input[name=nLang]:checked") || {}).value || "asli", extra: $("nExtra").value.trim() };
+    store.set("newForm", { n: form.n, min: form.min, max: form.max, mode: form.mode, subLang: form.subLang, extra: form.extra });
+    const st = $("nStatus"); st.className = "status";
+    if (!ytId(form.url)) { st.className = "status err"; st.textContent = "Link YouTube tidak dikenali. Contoh: https://youtu.be/abc123XYZ00"; return; }
+    if (!store.get("key", "")) { st.className = "status err"; st.innerHTML = 'API key Gemini belum diisi. <a href="#settings">Buka Pengaturan</a>.'; return; }
+    const t = addTask("Analisis video · " + ytId(form.url), "analyze");
+    st.className = "status"; st.textContent = "Analisis berjalan di antrian tugas. Hasilnya muncul sebagai proyek baru.";
+    $("nGo").disabled = true;
+    try {
+      const p = await analyzeToProject(form, t);
+      endTask(t, true, `${p.clips.length} momen ditemukan`);
+      toast(`${p.clips.length} momen ditemukan`, { label: "Buka proyek", run: () => go("#p/" + p.id) });
+      fetchTask(p, p.clips.filter(c => c.on));
+      if (route.name === "new") go("#p/" + p.id);
+    } catch (e) {
+      endTask(t, false, e.message);
+      if ($("nStatus")) { $("nStatus").className = "status err"; $("nStatus").textContent = e.message; }
+    } finally { if ($("nGo")) $("nGo").disabled = false; }
+  };
+}
+
+/* ===== Semua proyek ===== */
+function viewProjects(v){
+  v.innerHTML = `<div class="page">
+    <div class="page-h"><div class="grow"><h1>Semua proyek</h1><p>${projects.length} proyek tersimpan di browser ini.</p></div><a class="btn" href="#new">Proyek baru</a></div>
+    ${projects.length ? `<div class="projects" id="allProj">${projects.map(projCard).join("")}</div>`
+      : `<div class="empty"><b>Belum ada proyek</b>Mulai dengan menempel link YouTube.<br><a class="btn" href="#new">Proyek baru</a></div>`}</div>`;
+  if ($("allProj")) bindProjCards($("allProj"));
+}
+
+/* ===== Halaman proyek ===== */
+const scoreCls = s => s >= 75 ? "hi" : s >= 50 ? "mid" : "lo";
+function viewProject(v){
+  const p = findProject(route.pid);
+  if (!p) { v.innerHTML = `<div class="page"><div class="empty"><b>Proyek tidak ditemukan</b>Mungkin sudah dihapus.<br><a class="btn" href="#projects">Kembali</a></div></div>`; return; }
+  const sel = p.clips.filter(c => c.on).length;
+  v.innerHTML = `<div class="page">
+    <div class="page-h"><div class="grow"><a class="hint" href="#projects">← Semua proyek</a><h1 style="margin-top:6px">${esc(p.title)}</h1>
+      <p>${p.clips.length} momen · dibuat ${fmtDate(p.created)} · <a href="https://youtu.be/${p.vid}" target="_blank" rel="noopener">buka di YouTube</a></p></div>
+      <button class="btn danger" id="pDel">Hapus proyek</button></div>
+    <section class="card"><div class="card-h"><h2>Momen</h2>
+      <div class="bulk" style="margin-left:auto">
+        <span class="hint">${sel} dipilih</span>
+        <button class="btn sec sm" id="pFetch" ${srvOk() ? "" : "disabled"}>Ambil video</button>
+        <button class="btn sm" id="pExport" ${sel ? "" : "disabled"}>Ekspor yang dipilih</button>
+      </div></div>
+      <div class="card-b">${p.clips.length ? `<div class="clip-list">${p.clips.map((c, i) => `
+        <article class="card cliprow">
+          <input type="checkbox" data-on="${c.id}" ${c.on ? "checked" : ""} aria-label="Pilih ${esc(c.title)}">
+          <div class="mini"><canvas width="90" height="160" data-mini="${c.id}"></canvas></div>
+          <div style="min-width:0"><h3>${esc(c.title)}</h3><div class="sub">${esc(hookText(c))}</div>
+            <div class="meta"><span class="pill mono">${fmt(c.start)}–${fmt(c.end)} · ${Math.round(c.end - c.start)} dtk</span>
+              ${c.seg && c.seg.key === segKey(c) ? '<span class="pill ok">video siap</span>' : inflight.has(segKey(c)) ? '<span class="pill warn">mengambil video…</span>' : '<span class="pill">video belum diambil</span>'}</div></div>
+          <div class="score ${scoreCls(c.score)}">${c.score}<small>SKOR</small></div>
+          <div class="row-actions">
+            <a class="btn sm" href="#edit/${p.id}/${c.id}">Edit</a>
+            <button class="btn danger sm icon" data-delclip="${c.id}" aria-label="Hapus klip"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
+          </div></article>`).join("")}</div>`
+        : `<div class="empty"><b>Semua klip sudah dihapus</b>Buat proyek baru dari video yang sama untuk mencari momen lagi.</div>`}</div></section></div>`;
+  armDelete($("pDel"), () => { deleteProject(p.id); go("#projects"); });
+  v.querySelectorAll("[data-on]").forEach(cb => cb.onchange = () => { p.clips.find(c => c.id === cb.dataset.on).on = cb.checked; saveProjects(); viewProject(v); });
+  v.querySelectorAll("[data-delclip]").forEach(b => armDelete(b, () => { deleteClip(p, b.dataset.delclip); viewProject(v); }));
+  v.querySelectorAll("[data-mini]").forEach(cv => { const c = p.clips.find(x => x.id === cv.dataset.mini); drawThumb(cv.getContext("2d"), cv.width, cv.height, c, c.thumbIdx, c.thumbStyle, hookText(c)); });
+  $("pFetch").onclick = () => { fetchTask(p, p.clips.filter(c => c.on)); setTimeout(() => viewProject(v), 50); };
+  $("pExport").onclick = () => exportClips(p, p.clips.filter(c => c.on));
+}
+
+/* ===== Hasil ekspor ===== */
+async function viewExports(v){
+  v.innerHTML = `<div class="page"><div class="page-h"><div class="grow"><h1>Hasil ekspor</h1><p>Video jadi tersimpan di perangkat ini. Unduh lalu posting, atau hapus kalau sudah tidak dipakai.</p></div>
+    <button class="btn danger" id="exDelAll" hidden>Hapus semua</button></div><div id="exBox"><p class="hint">Memuat…</p></div></div>`;
+  const list = await exportsAll(); exportCount = list.length; updateCounts();
+  const box = $("exBox"); if (!box) return;
+  if (!list.length) { box.innerHTML = `<div class="empty"><b>Belum ada hasil ekspor</b>Buka proyek, edit klip, lalu tekan Ekspor.<br><a class="btn" href="#projects">Ke proyek</a></div>`; return; }
+  $("exDelAll").hidden = false;
+  box.innerHTML = `<div class="exports">${list.map(x => `<article class="card exp">
+      <div class="v">${x.thumb ? `<img src="${x.thumb}" alt="">` : ""}<span class="pill mono">${fmt(x.dur || 0)}</span></div>
+      <div class="body"><h3>${esc(x.title)}</h3><span class="hint">${fmtDate(x.created)} · ${(x.size / 1048576).toFixed(1)} MB · ${x.ext.toUpperCase()}</span>
+        <div class="acts"><button class="btn sm" data-dl="${x.id}">Unduh</button>${navigator.canShare ? `<button class="btn sec sm" data-share="${x.id}">Bagikan</button>` : ""}
+          <button class="btn sec sm" data-cap="${x.id}">Caption</button><button class="btn danger sm" data-del="${x.id}">Hapus</button></div></div></article>`).join("")}</div>`;
+  const get = id => list.find(x => x.id === id);
+  box.querySelectorAll("[data-dl]").forEach(b => b.onclick = () => { const x = get(b.dataset.dl); download(x.blob, x.name); });
+  box.querySelectorAll("[data-cap]").forEach(b => b.onclick = () => copyText(get(b.dataset.cap).caption || "", b));
+  box.querySelectorAll("[data-share]").forEach(b => b.onclick = async () => { const x = get(b.dataset.share); const f = new File([x.blob], x.name, { type: x.blob.type });
+    if (navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], text: x.caption || "" }); } catch (e) {} } else toast("Perangkat ini tidak mendukung berbagi file."); });
+  box.querySelectorAll("[data-del]").forEach(b => armDelete(b, async () => { await exportDel(b.dataset.del); toast("Hasil dihapus"); viewExports(v); }));
+  armDelete($("exDelAll"), async () => { for (const x of list) await exportDel(x.id); toast("Semua hasil dihapus"); viewExports(v); });
+}
+
+/* ===== Pengaturan ===== */
+function viewSettings(v){
+  const s = settings();
+  v.innerHTML = `<div class="page"><div class="page-h"><div class="grow"><h1>Pengaturan</h1><p>Disimpan hanya di browser perangkat ini.</p></div></div>
+    <div class="grid2" style="align-items:start">
+      <section class="card"><div class="card-h"><h2>Akun AI & pengambil video</h2></div><div class="card-b">
+        <div class="field"><label class="lbl" for="sKey">API key Gemini</label><input type="password" id="sKey" value="${esc(store.get("key", ""))}" placeholder="dari aistudio.google.com" autocomplete="off"></div>
+        <div class="field"><label class="lbl" for="sModel">Model Gemini</label><select id="sModel">
+          ${["gemini-2.5-flash", "gemini-3-flash-preview", "gemini-2.5-flash-lite"].map(m => `<option ${s.model === m ? "selected" : ""}>${m}</option>`).join("")}</select></div>
+        <div class="field"><label class="lbl" for="sRepo">Repo GitHub</label><input type="text" id="sRepo" value="${esc(srv().url)}" placeholder="namaakun/clipper-server" autocapitalize="off"></div>
+        <div class="field"><label class="lbl" for="sTok">Token GitHub</label><input type="password" id="sTok" value="${esc(srv().key)}" placeholder="github_pat_…" autocomplete="off"></div>
+        <button class="btn sec" id="sTest">Tes koneksi GitHub</button><div class="status" id="sStatus"></div>
+      </div></section>
+      <section class="card"><div class="card-h"><h2>Bawaan ekspor & tampilan</h2></div><div class="card-b">
+        <div class="grid2">
+          <div class="field"><label class="lbl" for="sQ">Kualitas</label><select id="sQ"><option value="720" ${+s.quality === 720 ? "selected" : ""}>720p · cepat</option><option value="1080" ${+s.quality === 1080 ? "selected" : ""}>1080p · tajam</option></select></div>
+          <div class="field"><label class="lbl" for="sVoice">Suara hook</label><select id="sVoice">
+            ${[["Puck", "Puck · pria ceria"], ["Fenrir", "Fenrir · pria bersemangat"], ["Charon", "Charon · pria tenang"], ["Kore", "Kore · wanita tegas"], ["Aoede", "Aoede · wanita ringan"], ["Zephyr", "Zephyr · wanita cerah"]].map(([a, b]) => `<option value="${a}" ${s.voice === a ? "selected" : ""}>${b}</option>`).join("")}</select></div>
+        </div>
+        <div class="field"><label class="lbl" for="sWhisper">Ketelitian subtitle (Whisper)</label><select id="sWhisper">
+          ${[["base", "Cepat (base)"], ["small", "Seimbang (small) · disarankan"], ["medium", "Paling akurat (medium) · lebih lama"]].map(([a, b]) => `<option value="${a}" ${s.whisper === a ? "selected" : ""}>${b}</option>`).join("")}</select></div>
+        <div class="field"><label class="lbl" for="sThumb">Gaya thumbnail awal</label><select id="sThumb">${THUMB_STYLES.map(([a, b]) => `<option value="${a}" ${s.thumbStyle === a ? "selected" : ""}>${b}</option>`).join("")}</select></div>
+        <div class="field"><label class="lbl">Tampilan</label><div class="chips">
+          ${[["auto", "Otomatis"], ["desktop", "Desktop"], ["mobile", "Mobile"]].map(([a, b]) => `<label class="chip"><input type="radio" name="viewSet" value="${a}" ${s.view === a ? "checked" : ""}><span>${b}</span></label>`).join("")}</div></div>
+        <div class="field"><label class="lbl">Tema</label><div class="chips">
+          ${[["auto", "Otomatis"], ["dark", "Gelap"], ["light", "Terang"]].map(([a, b]) => `<label class="chip"><input type="radio" name="themeSet" value="${a}" ${s.theme === a ? "checked" : ""}><span>${b}</span></label>`).join("")}</div></div>
+      </div></section>
+    </div></div>`;
+  $("sKey").onchange = e => { store.set("key", e.target.value.trim()); toast("API key disimpan"); };
+  $("sModel").onchange = e => setSetting("model", e.target.value);
+  $("sRepo").onchange = e => { store.set("srvUrl", e.target.value.trim()); defaultBranch = null; };
+  $("sTok").onchange = e => { store.set("srvKey", e.target.value.trim()); defaultBranch = null; };
+  $("sQ").onchange = e => setSetting("quality", +e.target.value);
+  $("sVoice").onchange = e => setSetting("voice", e.target.value);
+  $("sThumb").onchange = e => setSetting("thumbStyle", e.target.value);
+  $("sWhisper").onchange = e => setSetting("whisper", e.target.value);
+  v.querySelectorAll("input[name=viewSet]").forEach(r => r.onchange = () => setView(r.value));
+  v.querySelectorAll("input[name=themeSet]").forEach(r => r.onchange = () => { setSetting("theme", r.value); applyTheme(); });
+  $("sTest").onclick = async () => {
+    const st = $("sStatus"); st.className = "status"; st.textContent = "Menghubungi GitHub…";
+    try { defaultBranch = null; await branch(); const w = await gh("/actions/workflows/clip.yml"); if (!w.ok) throw new Error(await ghErr(w));
+      st.className = "status ok"; st.textContent = "Tersambung. Repo dan workflow clip.yml ditemukan."; }
+    catch (e) { st.className = "status err"; st.textContent = e.message; }
+  };
+}
+
+
+/* ===== Ekspor (antrian render) ===== */
+let renderChain = Promise.resolve(), renderingClip = null;
+function exportClips(p, list){
+  if (!list.length) return;
+  if (!srvOk()) { toast("Isi repo & token GitHub dulu di Pengaturan."); return; }
+  if (!window.MediaRecorder || !canvas.captureStream) { toast("Browser ini belum bisa merekam video. Pakai Chrome terbaru."); return; }
+  fetchTask(p, list); // ambil semua video sekaligus
+  for (const c of list) {
+    const t = addTask("Ekspor · " + c.title, "render");
+    let cancelled = false;
+    t.cancel = () => { cancelled = true; cancelFlag = true; updTask(t, "Membatalkan…"); };
+    renderChain = renderChain.then(() => cancelled ? endTask(t, false, "Dibatalkan") : exportOne(p, c, t)).catch(() => {});
+  }
+  toast(list.length > 1 ? `${list.length} klip masuk antrian ekspor` : "Klip masuk antrian ekspor");
+}
+async function exportOne(p, c, t){
+  const o = renderOpts(p);
+  cancelFlag = false;
+  try {
+    updTask(t, "Menunggu video dari GitHub…", 0.02);
+    await loadClipSource(c, m => updTask(t, m));
+    if (cancelFlag) throw new Error("Dibatalkan");
+    let intro = null;
+    if (o.intro) {
+      intro = {};
+      if (!c.frames) { updTask(t, "Menyiapkan thumbnail…"); await captureFrames(c); }
+      try { updTask(t, "Membuat suara hook…"); intro.buf = await ttsBuffer(hookText(c), o.voice); }
+      catch (e) { toast("Suara hook gagal: " + e.message + " (intro tanpa suara)"); }
+    }
+    ensureAudio(); await audioCtx.resume(); await loadFonts();
+    if (typeof edPause === "function") edPause();
+    rendering = true; renderingClip = c; placeCanvas();
+    try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) { wakeLock = null; }
+    const blob = await renderOne(c, o, intro, (m, f) => { updTask(t, m, f); const d = $("dockMsg"); if (d) d.textContent = m; });
+    if (!blob) throw new Error("Dibatalkan");
+    const ext = blob.type.includes("mp4") ? "mp4" : "webm";
+    const th = makeThumbCanvas(c, 270, 480).toDataURL("image/jpeg", 0.8);
+    const rec = { id: uid(), projectId: p.id, clipId: c.id, title: c.title, created: Date.now(), blob, size: blob.size, ext,
+      name: `${slug(c.title)}.${ext}`, thumb: th, dur: (intro && intro.buf ? intro.buf.duration + 0.5 : o.intro ? 2.2 : 0) + (c.end - c.start), caption: captionText(c) };
+    await exportPut(rec); exportCount++; updateCounts();
+    endTask(t, true, `Selesai · ${(blob.size / 1048576).toFixed(1)} MB`);
+    toast("Ekspor selesai: " + c.title, { label: "Unduh", run: () => download(blob, rec.name) });
+  } catch (e) {
+    endTask(t, false, e.message || String(e));
+  } finally {
+    rendering = false; renderingClip = null; cancelFlag = false; placeCanvas();
+    try { wakeLock && wakeLock.release(); } catch (e) {}
+  }
+}
+function captionText(c){ return `${c.title}\n\n${c.caption || ""}\n\n${(c.hashtags || []).join(" ")}`.trim(); }
+
+/* ===== Penempatan kanvas: editor atau dok render ===== */
+function placeCanvas(){
+  const edScreen = $("edScreen");
+  if (edScreen && (!rendering || (ed && renderingClip === ed.c))) { if (canvas.parentNode !== edScreen) edScreen.prepend(canvas); $("dock").hidden = true; return; }
+  if (rendering) { $("dockScreen").appendChild(canvas); $("dock").hidden = false; return; }
+  $("dock").hidden = true;
+}
+
+/* ===== Editor ===== */
+let ed = null;
+const EMOJIS = ["🔥", "😱", "😂", "🤯", "💯", "👀", "❤️", "😭", "🙏", "⚡", "💡", "🚀", "😎", "🤔", "👏", "💰"];
+const TABS = [["teks", "Teks"], ["hook", "Hook & thumbnail"], ["efek", "Efek"], ["kamera", "Kamera"], ["info", "Info"]];
+function leaveEditor(){ if (ed) { edPause(); ed = null; } }
+function edReady(){ return ed && segCovers(ed.c) && loadedFor === ed.c.seg.url; }
+function introLen(){ return ed && styleOf(ed.p).intro ? 2.2 : 0; }
+
+function viewEditor(v){
+  const p = findProject(route.pid), c = p && p.clips.find(x => x.id === route.cid);
+  if (!c) { v.innerHTML = `<div class="page"><div class="empty"><b>Klip tidak ditemukan</b><a class="btn" href="#projects">Kembali</a></div></div>`; return; }
+  ensureThumb(c);
+  ed = { p, c, t: c.start, playing: false, sel: null, tab: (ed && ed.tab) || store.get("edTab", "teks"), pps: 0, raf: 0 };
+  const idx = p.clips.indexOf(c), prev = p.clips[idx - 1], next = p.clips[idx + 1];
+  v.innerHTML = `<div class="editor">
+    <div class="ed-top">
+      <a class="btn ghost sm" href="#p/${p.id}" aria-label="Kembali ke proyek">←</a>
+      <div class="t"><b>${esc(c.title)}</b><small>Klip ${idx + 1} dari ${p.clips.length} · ${esc(p.title)}</small></div>
+      ${prev ? `<a class="btn ghost sm" href="#edit/${p.id}/${prev.id}" aria-label="Klip sebelumnya">‹</a>` : ""}
+      ${next ? `<a class="btn ghost sm" href="#edit/${p.id}/${next.id}" aria-label="Klip berikutnya">›</a>` : ""}
+      <button class="btn" id="edExport"><svg class="i" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Ekspor</button>
+    </div>
+    <aside class="insp"><div class="itabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${ed.tab === k}">${l}</button>`).join("")}</div>
+      <div class="ipane" id="ipane"></div></aside>
+    <section class="stage">
+      <div class="screen" id="edScreen"><div class="over" id="edOver"></div></div>
+      <div class="transport">
+        <button class="btn ghost sm" id="edBack" aria-label="Mundur 2 detik">−2s</button>
+        <button class="play" id="edPlay" aria-label="Putar"><svg class="i" viewBox="0 0 24 24" id="edPlayIco"><path d="M8 5v14l11-7z"/></svg></button>
+        <button class="btn ghost sm" id="edFwd" aria-label="Maju 2 detik">+2s</button>
+        <span class="tc" id="edTc">00:00.0 / 00:00.0</span>
+      </div>
+    </section>
+    <section class="tl">
+      <div class="tl-bar">
+        <button class="btn sec sm" id="tlAddText">+ Teks</button>
+        <button class="btn sec sm" id="tlAddZoom">+ Zoom</button>
+        <button class="btn sec sm" id="tlAddCam">+ Titik kamera</button>
+        <button class="btn danger sm" id="tlDel" disabled>Hapus pilihan</button>
+        <span class="sp"></span>
+        <label class="hint" for="tlZoom">Perbesar</label><input type="range" id="tlZoom" min="10" max="200" step="1">
+      </div>
+      <div class="tl-body">
+        <div class="tl-labels"><div><i style="background:var(--t-video)"></i>Video</div><div><i style="background:var(--t-sub)"></i>Teks</div><div><i style="background:var(--t-emoji)"></i>Emoji</div><div><i style="background:var(--t-zoom)"></i>Zoom</div><div><i style="background:var(--t-cam)"></i>Kamera</div></div>
+        <div class="tl-scroll" id="tlScroll"><div class="tl-inner" id="tlInner"></div></div>
+      </div>
+    </section></div>`;
+  v.querySelectorAll(".itabs button").forEach(b => b.onclick = () => { ed.tab = b.dataset.tab; store.set("edTab", ed.tab); v.querySelectorAll(".itabs button").forEach(x => x.setAttribute("aria-selected", String(x === b))); drawPane(); });
+  $("edExport").onclick = () => exportClips(p, [c]);
+  $("edPlay").onclick = () => ed.playing ? edPause() : edPlay();
+  $("edBack").onclick = () => edSeek(ed.t - 2);
+  $("edFwd").onclick = () => edSeek(ed.t + 2);
+  $("tlAddText").onclick = () => { c.subs.push({ s: ed.t, e: Math.min(c.end, ed.t + 1.5), t: "Teks baru", hl: [] }); c.subs.sort((a, b) => a.s - b.s); select("sub", c.subs.findIndex(x => x.s === ed.t)); changed(true); ed.tab = "teks"; syncTabs(); drawPane(); };
+  $("tlAddZoom").onclick = () => { c.zooms.push(ed.t); c.zooms.sort((a, b) => a - b); changed(true); };
+  $("tlAddCam").onclick = () => { c.track = c.track || []; c.track.push({ t: ed.t, x: focusAt(c, ed.t, { follow: true }) }); c.track.sort((a, b) => a.t - b.t); select("cam", c.track.findIndex(x => x.t === ed.t)); changed(true); ed.tab = "kamera"; syncTabs(); drawPane(); };
+  $("tlDel").onclick = deleteSelected;
+  const total = (c.end - c.start) + introLen();
+  ed.pps = Math.max(12, Math.min(200, Math.floor(($("tlScroll").clientWidth - 24) / Math.max(1, total))));
+  $("tlZoom").value = ed.pps; $("tlZoom").oninput = e => { ed.pps = +e.target.value; drawTimeline(); };
+  placeCanvas(); sizeCanvas(renderOpts(p).quality);
+  drawTimeline(); drawPane(); drawOverlay();
+  loadFonts().then(() => edDrawStatic());
+  if (segCovers(c)) loadClipSource(c).then(() => { drawOverlay(); edSeek(c.start); }).catch(e => drawOverlay(e.message));
+}
+function syncTabs(){ document.querySelectorAll(".itabs button").forEach(x => x.setAttribute("aria-selected", String(x.dataset.tab === ed.tab))); }
+function drawOverlay(err){
+  const o = $("edOver"); if (!o || !ed) return;
+  const c = ed.c, busy = inflight.has(segKey(c));
+  if (rendering && renderingClip !== c) { o.hidden = false; o.innerHTML = `<div>Sedang mengekspor klip lain.<br>Pratinjau tersedia setelah selesai.</div>`; return; }
+  if (edReady() || (rendering && renderingClip === c)) { o.hidden = true; return; }
+  o.hidden = false;
+  if (err) { o.innerHTML = `<div>${esc(err)}<br><button class="btn sm" id="ovFetch">Coba ambil lagi</button></div>`; }
+  else if (busy) { o.innerHTML = `<div>Mengambil video dari GitHub…<br><span class="hint">Biasanya 1–3 menit. Kamu tetap bisa mengedit teks, hook, dan efek.</span></div>`; }
+  else if (segCovers(c)) { o.innerHTML = `<div>Memuat video…</div>`; }
+  else { o.innerHTML = `<div>Video klip ini belum diambil.<br>${srvOk() ? `<button class="btn sm" id="ovFetch">Ambil video</button>` : `<a class="btn sm" href="#settings">Isi GitHub dulu</a>`}</div>`; }
+  const b = $("ovFetch"); if (b) b.onclick = () => { fetchTask(ed.p, [ed.c]); setTimeout(drawOverlay, 50); };
+  if (!edReady()) edDrawStatic();
+}
+// Gambar satu frame di posisi playhead (atau kartu kosong bila video belum ada)
+let seeking = false, seekWant = null;
+async function edDrawStatic(){
+  if (!ed || ed.playing || (rendering && renderingClip === ed.c)) return;
+  const o = renderOpts(ed.p);
+  if (!edReady()) {
+    ctx.fillStyle = "#0b0d10"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (ed.c.frames) drawThumb(ctx, canvas.width, canvas.height, ed.c, ed.c.thumbIdx, ed.c.thumbStyle, hookText(ed.c));
+    return;
+  }
+  seekWant = ed.t;
+  if (seeking) return;
+  seeking = true;
+  while (seekWant != null) { const t = seekWant; seekWant = null; await seek(t); if (ed && !ed.playing) drawFrame(ed.c, t, o); }
+  seeking = false;
+}
+function edSeek(t){
+  if (!ed) return;
+  ed.t = Math.max(ed.c.start, Math.min(ed.c.end - 0.05, t));
+  updatePlayhead();
+  if (ed.playing) { video.currentTime = ed.t - srcOffset; } else edDrawStatic();
+}
+function edPlay(){
+  if (!ed) return;
+  if (!edReady()) { toast(inflight.has(segKey(ed.c)) ? "Video masih diambil dari GitHub." : "Ambil video klip ini dulu."); return; }
+  if (rendering) { toast("Tunggu ekspor selesai dulu."); return; }
+  ensureAudio(); audioCtx.resume(); monitorGain.gain.value = 1;
+  if (ed.t >= ed.c.end - 0.1) ed.t = ed.c.start;
+  video.currentTime = ed.t - srcOffset;
+  video.play().catch(() => {});
+  ed.playing = true; $("edPlayIco").innerHTML = '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>';
+  const o = renderOpts(ed.p);
+  const loop = () => {
+    if (!ed || !ed.playing) return;
+    const t = video.currentTime + srcOffset; ed.t = t;
+    drawFrame(ed.c, t, o); updatePlayhead();
+    if (t >= ed.c.end - 0.04 || video.ended) { edPause(); ed.t = ed.c.start; updatePlayhead(); edDrawStatic(); return; }
+    ed.raf = requestAnimationFrame(loop);
+  };
+  ed.raf = requestAnimationFrame(loop);
+}
+function edPause(){
+  if (monitorGain) monitorGain.gain.value = 0;
+  if (!ed || !ed.playing) return;
+  ed.playing = false; cancelAnimationFrame(ed.raf);
+  if (!rendering) video.pause();
+  const ic = $("edPlayIco"); if (ic) ic.innerHTML = '<path d="M8 5v14l11-7z"/>';
+}
+document.addEventListener("keydown", e => {
+  if (!ed || route.name !== "edit" || /input|textarea|select/i.test(e.target.tagName)) return;
+  if (e.code === "Space") { e.preventDefault(); ed.playing ? edPause() : edPlay(); }
+  if (e.key === "ArrowLeft") edSeek(ed.t - (e.shiftKey ? 1 : 0.1));
+  if (e.key === "ArrowRight") edSeek(ed.t + (e.shiftKey ? 1 : 0.1));
+  if (e.key === "Delete" || e.key === "Backspace") deleteSelected();
+});
+function changed(tl){ saveProjects(); if (tl) drawTimeline(); if (ed && !ed.playing) edDrawStatic(); }
+
+/* ----- Timeline ----- */
+const X = t => Math.round((introLen() + (t - ed.c.start)) * ed.pps);
+function updatePlayhead(){
+  if (!ed) return;
+  const ph = $("tlPlayhead"); if (ph) ph.style.left = X(ed.t) + "px";
+  const tc = $("edTc"); if (tc) tc.textContent = `${fmtS(ed.t - ed.c.start)} / ${fmtS(ed.c.end - ed.c.start)}`;
+  const sc = $("tlScroll");
+  if (sc && ed.playing) { const x = X(ed.t); if (x > sc.scrollLeft + sc.clientWidth - 40 || x < sc.scrollLeft) sc.scrollLeft = x - 40; }
+}
+const fmtS = t => { t = Math.max(0, t); return `${String(Math.floor(t / 60)).padStart(2, "0")}:${(t % 60).toFixed(1).padStart(4, "0")}`; };
+function drawTimeline(){
+  if (!ed) return;
+  const c = ed.c, dur = c.end - c.start, il = introLen(), W = Math.ceil((il + dur) * ed.pps) + 40;
+  const step = ed.pps >= 60 ? 1 : ed.pps >= 25 ? 2 : 5;
+  let ruler = "";
+  for (let s = 0; s <= dur + 0.001; s += step) ruler += `<i style="left:${X(c.start + s)}px"></i><span style="left:${X(c.start + s)}px">${fmt(s)}</span>`;
+  const sel = (k, i) => ed.sel && ed.sel.k === k && ed.sel.i === i ? " sel" : "";
+  const video = `${il ? `<div class="blk intro" style="left:0;width:${X(c.start) - 2}px" data-k="intro">Intro hook</div>` : ""}
+    <div class="blk video" style="left:${X(c.start)}px;width:${X(c.end) - X(c.start)}px" data-k="video"><span class="handle l" data-h="l"></span>
+      <span style="padding-left:10px;overflow:hidden;text-overflow:ellipsis">${esc(c.title)}</span><span class="handle r" data-h="r"></span></div>`;
+  const subs = c.subs.map((x, i) => `<div class="blk sub${sel("sub", i)}" data-k="sub" data-i="${i}" style="left:${X(Math.max(c.start, x.s))}px;width:${Math.max(8, X(Math.min(c.end, x.e)) - X(Math.max(c.start, x.s)) - 2)}px" title="${esc(x.t)}">${esc(x.t)}</div>`).join("");
+  const mk = (arr, k, label) => arr.map((t, i) => (t >= c.start - 0.01 && t <= c.end + 0.01) ? `<div class="mk ${k}${sel(k, i)}" data-k="${k}" data-i="${i}" style="left:${X(t)}px">${label(i)}</div>` : "").join("");
+  $("tlInner").style.width = W + "px";
+  $("tlInner").innerHTML = `<div class="ruler" id="tlRuler">${ruler}</div>
+    <div class="track" data-track="video">${video}</div>
+    <div class="track" data-track="sub">${subs}</div>
+    <div class="track" data-track="emoji">${mk(c.emojis.map(e => e.t), "emoji", i => c.emojis[i].e)}</div>
+    <div class="track" data-track="zoom">${mk(c.zooms, "zoom", () => "Z")}</div>
+    <div class="track" data-track="cam">${mk((c.track || []).map(p => p.t), "cam", () => "◎")}</div>
+    <div class="playhead" id="tlPlayhead"></div>`;
+  updatePlayhead();
+  $("tlDel").disabled = !ed.sel || ed.sel.k === "video" || ed.sel.k === "intro";
+  bindTimeline();
+}
+function select(k, i){ ed.sel = k ? { k, i } : null; }
+function deleteSelected(){
+  if (!ed || !ed.sel) return;
+  const c = ed.c, { k, i } = ed.sel;
+  if (k === "sub") c.subs.splice(i, 1); else if (k === "emoji") c.emojis.splice(i, 1); else if (k === "zoom") c.zooms.splice(i, 1); else if (k === "cam") c.track.splice(i, 1); else return;
+  ed.sel = null; changed(true); drawPane();
+}
+function bindTimeline(){
+  const inner = $("tlInner"), c = ed.c;
+  const tAtX = clientX => { const r = inner.getBoundingClientRect(); return c.start + (clientX - r.left) / ed.pps - introLen(); };
+  inner.onpointerdown = e => {
+    const el = e.target.closest("[data-k],[data-h]");
+    if (!el || el.dataset.k === "video" && !e.target.dataset.h) { // klik area kosong: pindah playhead
+      if (el && el.dataset.k === "video") { select("video", 0); }
+      else select(null);
+      edSeek(tAtX(e.clientX));
+      const mv = ev => edSeek(tAtX(ev.clientX)); const up = () => { removeEventListener("pointermove", mv); removeEventListener("pointerup", up); drawTimeline(); };
+      addEventListener("pointermove", mv); addEventListener("pointerup", up);
+      return;
+    }
+    e.preventDefault();
+    const h = e.target.dataset.h, k = h ? "trim" : el.dataset.k, i = +el.dataset.i, x0 = e.clientX;
+    if (k === "intro") { ed.tab = "hook"; syncTabs(); drawPane(); return; }
+    const orig = k === "sub" ? { s: c.subs[i].s, e: c.subs[i].e } : k === "emoji" ? c.emojis[i].t : k === "zoom" ? c.zooms[i] : k === "cam" ? c.track[i].t : { s: c.start, e: c.end };
+    if (k !== "trim") { select(k, i); if (k === "sub") { ed.tab = "teks"; syncTabs(); drawPane(); } if (k === "cam") { ed.tab = "kamera"; syncTabs(); drawPane(); } }
+    const lim = segCovers(c) ? { s: c.seg.s, e: c.seg.e } : { s: 0, e: 1e9 };
+    let moved = false;
+    const mv = ev => {
+      const dt = (ev.clientX - x0) / ed.pps; if (Math.abs(ev.clientX - x0) > 2) moved = true;
+      const cl = t => Math.max(c.start, Math.min(c.end, t));
+      if (k === "sub") { const len = orig.e - orig.s; const s = Math.max(c.start, Math.min(c.end - len, orig.s + dt)); c.subs[i].s = s; c.subs[i].e = s + len; }
+      else if (k === "emoji") c.emojis[i].t = cl(orig + dt);
+      else if (k === "zoom") c.zooms[i] = cl(orig + dt);
+      else if (k === "cam") c.track[i].t = cl(orig + dt);
+      else if (k === "trim") {
+        if (h === "l") c.start = Math.max(lim.s, Math.min(c.end - 3, orig.s + dt));
+        else c.end = Math.min(lim.e, Math.max(c.start + 3, orig.e + dt));
+      }
+      drawTimeline(); if (k === "trim") edSeek(h === "l" ? c.start : c.end - 0.1);
+    };
+    const up = () => {
+      removeEventListener("pointermove", mv); removeEventListener("pointerup", up);
+      if (k === "sub") c.subs.sort((a, b) => a.s - b.s);
+      if (k === "cam") c.track.sort((a, b) => a.t - b.t);
+      if (!moved && k !== "trim") { const t = k === "sub" ? c.subs[i].s : k === "emoji" ? c.emojis[i].t : k === "zoom" ? c.zooms[i] : c.track[i].t; edSeek(t); }
+      changed(true); if (k === "trim") drawPane();
+    };
+    addEventListener("pointermove", mv); addEventListener("pointerup", up);
+  };
+}
+
+/* ----- Panel inspektur ----- */
+function sw(id, label, on, hint){ return `<label class="switch"><span>${label}${hint ? `<br><small class="hint">${hint}</small>` : ""}</span><input type="checkbox" id="${id}" ${on ? "checked" : ""}></label>`; }
+function bindStyle(id, key){ const el = $(id); if (el) el.onchange = () => { ed.p.style = Object.assign(styleOf(ed.p), { [key]: el.type === "checkbox" ? el.checked : el.value }); changed(true); }; }
+function drawPane(){
+  if (!ed) return;
+  const c = ed.c, st = styleOf(ed.p), pane = $("ipane"); if (!pane) return;
+  const projNote = `<p class="hint">Pengaturan efek berlaku untuk semua klip di proyek ini.</p>`;
+  if (ed.tab === "teks") {
+    pane.innerHTML = `<div class="sect"><h4>Subtitle</h4>${sw("stSubs", "Tampilkan subtitle", st.subs)}${sw("stUpper", "Huruf besar", st.upper)}
+        <div class="field"><label class="lbl" for="stShift">Geser waktu subtitle</label><div class="range"><input type="range" id="stShift" min="-2" max="2" step="0.1" value="${st.shift}"><output id="stShiftO">${(+st.shift).toFixed(1)} s</output></div></div></div>
+      <div class="sect"><h4>Judul di atas video</h4>${sw("stTitle", "Tampilkan judul", st.title)}<input type="text" id="cTitle" value="${esc(c.title)}"></div>
+      <div class="sect"><h4>Sumber subtitle</h4>
+        ${c.subsSource ? `<span class="pill ok">${c.subsSource === "whisper" ? "Transkrip suara asli (Whisper)" : "Whisper + terjemahan Gemini"}</span>`
+          : `<span class="pill warn">Perkiraan AI · kurang akurat</span><p class="hint">Ambil ulang video untuk mendapat transkrip suara asli dengan waktu per kata.</p><button class="btn sec sm" id="reMeta">Ambil subtitle & kamera akurat</button>`}</div>
+      <div class="sect"><h4>Potongan teks (${c.subs.length})</h4>
+        ${c.subs.map((x, i) => `<div class="cue${ed.sel && ed.sel.k === "sub" && ed.sel.i === i ? " sel" : ""}" data-i="${i}"><span class="mono" data-go="${x.s}">${fmtS(x.s - c.start)}</span><input type="text" value="${esc(x.t)}" data-cue="${i}" aria-label="Teks ${i + 1}"><button class="btn ghost sm icon" data-rm="${i}" aria-label="Hapus">✕</button></div>`).join("") || `<p class="hint">Belum ada teks. Tekan “+ Teks” di timeline.</p>`}
+      </div>${projNote}`;
+    bindStyle("stSubs", "subs"); bindStyle("stUpper", "upper"); bindStyle("stTitle", "title");
+    $("stShift").oninput = e => { $("stShiftO").textContent = (+e.target.value).toFixed(1) + " s"; ed.p.style = Object.assign(styleOf(ed.p), { shift: +e.target.value }); changed(false); };
+    $("cTitle").oninput = e => { c.title = e.target.value; changed(true); };
+    pane.querySelectorAll("[data-cue]").forEach(inp => inp.oninput = () => { const q = c.subs[+inp.dataset.cue]; q.t = inp.value; if (q.w && q.w.length !== q.t.split(/\s+/).filter(Boolean).length) q.w = null; changed(true); });
+    const rm = $("reMeta"); if (rm) rm.onclick = () => { if (!srvOk()) { toast("Isi GitHub dulu di Pengaturan."); return; } edPause(); ed.c.seg = null; loadedFor = null; fetchTask(ed.p, [ed.c]); drawOverlay(); drawPane(); };
+    pane.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { c.subs.splice(+b.dataset.rm, 1); ed.sel = null; changed(true); drawPane(); });
+    pane.querySelectorAll("[data-go]").forEach(s => s.onclick = () => edSeek(+s.dataset.go));
+    const sel = pane.querySelector(".cue.sel input"); if (sel) sel.scrollIntoView({ block: "nearest" });
+  }
+  if (ed.tab === "hook") {
+    pane.innerHTML = `<div class="sect">${sw("stIntro", "Intro thumbnail + hook bersuara", st.intro, "Video dibuka dengan thumbnail sambil hook dibacakan")}</div>
+      <div class="sect"><h4>Thumbnail</h4><div class="thumbs" id="edThumbs">${[0, 1, 2].map(k => `<button type="button" class="thumb" data-k="${k}" aria-label="Thumbnail ${k + 1}"><canvas width="180" height="320"></canvas></button>`).join("")}</div>
+        <div class="chips">${THUMB_STYLES.map(([v2, n]) => `<label class="chip"><input type="radio" name="edSt" value="${v2}" ${c.thumbStyle === v2 ? "checked" : ""}><span>${n}</span></label>`).join("")}</div>
+        <div class="chips"><button class="btn sec sm" id="hkFrames">${c.frames ? "Ambil ulang frame" : "Ambil frame dari video"}</button><button class="btn sec sm" id="hkDl">Unduh thumbnail</button></div></div>
+      <div class="sect"><h4>Hook pembuka</h4>
+        ${c.hooks.map((h, k) => `<label class="opt"><input type="radio" name="edHk" value="${k}" ${c.hookIdx === k ? "checked" : ""}><span>${esc(h)}</span></label>`).join("")}
+        <label class="opt"><input type="radio" name="edHk" value="-1" ${c.hookIdx === -1 ? "checked" : ""}><input type="text" id="hkCustom" placeholder="Tulis hook sendiri…" value="${esc(c.hookCustom || "")}"></label>
+        <div class="chips"><button class="btn sec sm" id="hkListen">Dengar hook</button>
+          <select id="hkVoice" style="width:auto">${[["Puck", "Puck · pria ceria"], ["Fenrir", "Fenrir · pria semangat"], ["Charon", "Charon · pria tenang"], ["Kore", "Kore · wanita tegas"], ["Aoede", "Aoede · wanita ringan"], ["Zephyr", "Zephyr · wanita cerah"]].map(([a, b]) => `<option value="${a}" ${settings().voice === a ? "selected" : ""}>${b}</option>`).join("")}</select></div></div>`;
+    bindStyle("stIntro", "intro");
+    const tb = $("edThumbs"); paintThumbs(c, tb);
+    tb.querySelectorAll(".thumb").forEach(b => b.onclick = () => { c.thumbIdx = +b.dataset.k; saveProjects(); paintThumbs(c, tb); edDrawStatic(); });
+    pane.querySelectorAll("input[name=edSt]").forEach(r => r.onchange = () => { c.thumbStyle = r.value; saveProjects(); paintThumbs(c, tb); });
+    pane.querySelectorAll("input[name=edHk]").forEach(r => r.onchange = () => { c.hookIdx = +r.value; saveProjects(); paintThumbs(c, tb); });
+    $("hkCustom").oninput = e => { c.hookCustom = e.target.value; c.hookIdx = -1; pane.querySelector('input[name=edHk][value="-1"]').checked = true; saveProjects(); paintThumbs(c, tb); };
+    $("hkVoice").onchange = e => setSetting("voice", e.target.value);
+    $("hkFrames").onclick = async e => { const b = e.target; if (!segCovers(c)) { toast("Ambil video klip ini dulu."); return; } b.disabled = true; b.textContent = "Mengambil…";
+      try { edPause(); await captureFrames(c); paintThumbs(c, tb); b.textContent = "Ambil ulang frame"; edSeek(ed.t); } catch (er) { toast(er.message); b.textContent = "Ambil frame dari video"; } b.disabled = false; };
+    $("hkDl").onclick = async e => { if (!c.frames && !segCovers(c)) { toast("Ambil video klip ini dulu."); return; } const b = e.target; b.disabled = true;
+      try { edPause(); const blob = await thumbBlob(c); paintThumbs(c, tb); download(blob, `thumbnail-${slug(c.title)}.png`); edSeek(ed.t); } catch (er) { toast(er.message); } b.disabled = false; };
+    $("hkListen").onclick = async e => { const b = e.target, o = b.textContent; b.textContent = "Membuat suara…"; b.disabled = true;
+      try { await playHook(c); } catch (er) { toast(er.message); } b.textContent = o; b.disabled = false; };
+  }
+  if (ed.tab === "efek") {
+    pane.innerHTML = `<div class="sect"><h4>Tata letak</h4><div class="chips">
+        ${[["cover", "Penuh 9:16"], ["blur", "Utuh + latar blur"]].map(([a, b]) => `<label class="chip"><input type="radio" name="edLay" value="${a}" ${st.layout === a ? "checked" : ""}><span>${b}</span></label>`).join("")}</div></div>
+      <div class="sect"><h4>Efek</h4>${sw("stZoom", "Zoom & gerak kamera", st.zoom)}${sw("stEmoji", "Emoji muncul", st.emoji)}${sw("stBar", "Garis progres bawah", st.bar)}</div>
+      <div class="sect"><h4>Tambah emoji di playhead</h4><div class="emoji-pick">${EMOJIS.map(e => `<button type="button" data-em="${e}">${e}</button>`).join("")}</div>
+        ${c.emojis.map((x, i) => `<div class="list-row"><span class="mono" data-go="${x.t}">${fmtS(x.t - c.start)}</span><span class="grow">${x.e}</span><button class="btn ghost sm icon" data-rme="${i}" aria-label="Hapus">✕</button></div>`).join("")}</div>
+      <div class="sect"><h4>Titik zoom (${c.zooms.length})</h4>
+        ${c.zooms.map((t, i) => `<div class="list-row"><span class="mono" data-go="${t}">${fmtS(t - c.start)}</span><span class="grow">Zoom cepat</span><button class="btn ghost sm icon" data-rmz="${i}" aria-label="Hapus">✕</button></div>`).join("") || `<p class="hint">Tekan “+ Zoom” di timeline untuk menambah.</p>`}</div>${projNote}`;
+    pane.querySelectorAll("input[name=edLay]").forEach(r => r.onchange = () => { ed.p.style = Object.assign(styleOf(ed.p), { layout: r.value }); changed(true); });
+    bindStyle("stZoom", "zoom"); bindStyle("stEmoji", "emoji"); bindStyle("stBar", "bar");
+    pane.querySelectorAll("[data-em]").forEach(b => b.onclick = () => { c.emojis.push({ t: ed.t, e: b.dataset.em }); c.emojis.sort((a, b2) => a.t - b2.t); changed(true); drawPane(); });
+    pane.querySelectorAll("[data-rme]").forEach(b => b.onclick = () => { c.emojis.splice(+b.dataset.rme, 1); changed(true); drawPane(); });
+    pane.querySelectorAll("[data-rmz]").forEach(b => b.onclick = () => { c.zooms.splice(+b.dataset.rmz, 1); changed(true); drawPane(); });
+    pane.querySelectorAll("[data-go]").forEach(s => s.onclick = () => edSeek(+s.dataset.go));
+  }
+  if (ed.tab === "kamera") {
+    const tr = c.track || (c.track = []);
+    pane.innerHTML = `<div class="sect">${sw("stFollow", "Kamera ikut pembicara", st.follow, "Bingkai bergeser halus ke orang yang sedang bicara")}
+        <div class="field"><label class="lbl" for="cAdj">Koreksi fokus seluruh klip</label><div class="range"><input type="range" id="cAdj" min="-0.3" max="0.3" step="0.01" value="${c.adj || 0}"><output id="cAdjO">${Math.round((c.adj || 0) * 100)}%</output></div></div></div>
+      <div class="sect"><h4>Titik kamera (${tr.length})</h4>
+        ${tr.map((p, i) => `<div class="list-row${ed.sel && ed.sel.k === "cam" && ed.sel.i === i ? " sel" : ""}"><span class="mono" data-go="${p.t}">${fmtS(p.t - c.start)}</span>
+          <input type="range" min="0" max="1" step="0.01" value="${p.x}" data-cx="${i}" class="grow" aria-label="Posisi kamera ${i + 1}"><button class="btn ghost sm icon" data-rmc="${i}" aria-label="Hapus">✕</button></div>`).join("") || `<p class="hint">Belum ada. Tekan “+ Titik kamera” di timeline.</p>`}
+        <p class="hint">Geser slider titik untuk mengarahkan kamera ke kiri atau kanan mulai detik itu.</p>
+        ${c.trackSource === "wajah" ? `<span class="pill ok">Dari deteksi wajah & mulut yang bicara</span>` : `<span class="pill warn">Perkiraan AI · kurang akurat</span>`}</div>${projNote}`;
+    bindStyle("stFollow", "follow");
+    $("cAdj").oninput = e => { c.adj = +e.target.value; $("cAdjO").textContent = Math.round(c.adj * 100) + "%"; changed(false); };
+    pane.querySelectorAll("[data-cx]").forEach(r => r.oninput = () => { tr[+r.dataset.cx].x = +r.value; edSeek(Math.max(ed.t, tr[+r.dataset.cx].t + 0.6)); changed(false); });
+    pane.querySelectorAll("[data-rmc]").forEach(b => b.onclick = () => { tr.splice(+b.dataset.rmc, 1); changed(true); drawPane(); });
+    pane.querySelectorAll("[data-go]").forEach(s => s.onclick = () => edSeek(+s.dataset.go));
+  }
+  if (ed.tab === "info") {
+    pane.innerHTML = `<div class="sect"><h4>Skor viral</h4><div style="display:flex;gap:12px;align-items:center"><div class="score ${scoreCls(c.score)}">${c.score}<small>SKOR</small></div><p class="hint" style="flex:1">${esc(c.reason)}</p></div></div>
+      <div class="sect"><h4>Waktu di video asli</h4><div class="grid2">
+        <div class="field"><label class="lbl" for="cS">Mulai</label><input class="mono" id="cS" value="${fmtS(c.start)}"></div>
+        <div class="field"><label class="lbl" for="cE">Selesai</label><input class="mono" id="cE" value="${fmtS(c.end)}"></div></div>
+        <p class="hint">Memperpanjang di luar video yang sudah diambil akan mengambil ulang video saat ekspor.</p>
+        <a class="btn sec sm" href="https://youtu.be/${c.vid}?t=${Math.floor(c.start)}" target="_blank" rel="noopener">Lihat di YouTube</a></div>
+      <div class="sect"><h4>Caption posting</h4><textarea id="cCap" rows="3">${esc(c.caption || "")}</textarea>
+        <input type="text" id="cTags" value="${esc((c.hashtags || []).join(" "))}" placeholder="#hashtag">
+        <button class="btn sec sm" id="cCopy">Salin judul + caption + hashtag</button></div>`;
+    $("cS").onchange = e => { const v2 = parseTime(e.target.value.replace(/^(\d+):(\d+\.?\d*)$/, "$1:$2")); if (isFinite(v2) && v2 < c.end - 3) { c.start = v2; changed(true); drawOverlay(); } };
+    $("cE").onchange = e => { const v2 = parseTime(e.target.value); if (isFinite(v2) && v2 > c.start + 3) { c.end = v2; changed(true); drawOverlay(); } };
+    $("cCap").oninput = e => { c.caption = e.target.value; saveProjects(); };
+    $("cTags").oninput = e => { c.hashtags = e.target.value.split(/\s+/).filter(Boolean).map(h => "#" + h.replace(/^#/, "")); saveProjects(); };
+    $("cCopy").onclick = e => copyText(captionText(c), e.target);
+  }
+}
+
+
+/* ===== Mulai ===== */
+window.addEventListener("beforeunload", e => { if (tasks.some(t => t.status === "run")) { e.preventDefault(); e.returnValue = ""; } });
+applyTheme(); applyView(); updateCounts(); refreshExportCount();
+rerender();
+try { document.fonts && document.fonts.load('80px "Anton"').then(() => { if (route.name === "project" || route.name === "edit") rerender(); }); } catch (e) {}
+
+</script>
+</body>
+</html>

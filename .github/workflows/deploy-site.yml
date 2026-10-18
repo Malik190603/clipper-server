@@ -31,11 +31,17 @@ jobs:
         run: |
           npx --yes wrangler@3 pages deploy site --project-name="$PROJECT" --branch="${{ steps.info.outputs.branch }}" --commit-dirty=true 2>&1 | tee /tmp/deploy.txt
           exit ${PIPESTATUS[0]}
+      - name: Cek deploy produksi
+        if: always()
+        run: |
+          sleep 5
+          curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PROJECT" | jq '{canonical: {id: .result.canonical_deployment.id, url: .result.canonical_deployment.url, env: .result.canonical_deployment.environment, created: .result.canonical_deployment.created_on, status: .result.canonical_deployment.latest_stage}, latest: {id: .result.latest_deployment.id, env: .result.latest_deployment.environment, branch: .result.latest_deployment.deployment_trigger.metadata.branch, created: .result.latest_deployment.created_on, status: .result.latest_deployment.latest_stage}, domains: .result.domains}' > /tmp/prod.json || true
+          curl -s -o /tmp/live.html "https://$PROJECT.pages.dev/?nocache=$RANDOM" && grep -o "<title>[^<]*</title>" /tmp/live.html >> /tmp/prod.json || true
       - name: Catat hasil deploy
         if: always()
         run: |
           mkdir -p /tmp/log && cd /tmp/log
-          { echo "waktu: $(date -u)"; echo "branch: ${{ steps.info.outputs.branch }}"; echo "status: ${{ steps.deploy.outcome }}"; echo "--- info"; cat /tmp/info.json 2>/dev/null; echo "--- deploy"; tail -n 25 /tmp/deploy.txt 2>/dev/null; } > deploy-log.txt
+          { echo "waktu: $(date -u)"; echo "branch: ${{ steps.info.outputs.branch }}"; echo "status: ${{ steps.deploy.outcome }}"; echo "--- info"; cat /tmp/info.json 2>/dev/null; echo "--- produksi"; cat /tmp/prod.json 2>/dev/null; echo "--- deploy"; tail -n 25 /tmp/deploy.txt 2>/dev/null; } > deploy-log.txt
           git init -q && git checkout -q -b deploy-log && git add -A
           git -c user.name=clipper-bot -c user.email=clipper-bot@users.noreply.github.com commit -q -m "log deploy"
           git push -q --force "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" deploy-log

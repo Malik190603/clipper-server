@@ -158,7 +158,9 @@ jobs:
           st["meta"] = {}
 
           def transcribe(model, path, s0):
-              segs, info = model.transcribe(path, word_timestamps=True, vad_filter=True, beam_size=5)
+              raw = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-ac", "1", "-ar", "16000", "-f", "s16le", "-"], capture_output=True).stdout
+              audio = np.frombuffer(raw, np.int16).astype(np.float32) / 32768.0
+              segs, info = model.transcribe(audio, word_timestamps=True, vad_filter=True, beam_size=5)
               words = []
               for sg in segs:
                   for w in (sg.words or []):

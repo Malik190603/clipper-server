@@ -38,9 +38,11 @@ jobs:
           deno-version: v2.x
       - name: Siapkan alat
         run: |
+          docker run --name bgutil -d -p 4416:4416 --init brainicism/bgutil-ytdlp-pot-provider > /dev/null
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg > /dev/null
-          pip install -q -U "yt-dlp[default]"
+          pip install -q -U "yt-dlp[default]" bgutil-ytdlp-pot-provider
+          for i in $(seq 1 20); do curl -s -o /dev/null http://127.0.0.1:4416/ && break; sleep 1; done
 
       - name: Ambil dan potong klip
         env:
@@ -82,27 +84,44 @@ jobs:
                   with open("/tmp/cookies.txt", "w") as f:
                       f.write(os.environ["YT_COOKIES"].strip() + "\n")
                   opts["cookiefile"] = "/tmp/cookies.txt"
-              with yt_dlp.YoutubeDL(opts) as y:
-                  info = y.extract_info(url, download=False)
-              fmts = info.get("requested_formats") or [info]
+              info, last, src = None, None, None
+              base = dict(opts, outtmpl="/tmp/src/src.%(ext)s", merge_output_format="mp4",
+                          http_chunk_size=10485760, retries=10, fragment_retries=10)
+              # Unduh video (sekali untuk semua klip), coba beberapa jenis pemutar YouTube
+              for pc in [None, ["tv", "web_safari"], ["mweb"], ["web_embedded", "tv_simply"], ["ios"]]:
+                  o = dict(base)
+                  if pc:
+                      o["extractor_args"] = {"youtube": {"player_client": pc}}
+                  try:
+                      with yt_dlp.YoutubeDL(o) as y:
+                          info = y.extract_info(url, download=True)
+                      cands = [os.path.join("/tmp/src", f) for f in os.listdir("/tmp/src")] if os.path.isdir("/tmp/src") else []
+                      cands = [c for c in cands if not c.endswith((".part", ".ytdl"))]
+                      if cands:
+                          src = max(cands, key=os.path.getsize)
+                          print("berhasil dengan pemutar:", pc or "bawaan", src)
+                          break
+                  except Exception as e:
+                      last = e
+                      print("gagal dengan pemutar", pc or "bawaan", ":", str(e)[-200:])
+                  subprocess.run(["rm", "-rf", "/tmp/src"])
+              if not src:
+                  raise last or RuntimeError("Video tidak berhasil diunduh.")
               for i, (s, e) in enumerate(clips):
                   s, e = float(s), float(e)
                   if s < 0 or e <= s or e - s > 600:
                       status["errors"][str(i)] = "Waktu klip tidak valid."
                       continue
                   out = f"out/clip-{i}.mp4"
-                  cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error"]
-                  for f in fmts:
-                      hdr = "".join(f"{k}: {v}\r\n" for k, v in (f.get("http_headers") or {}).items())
-                      cmd += ["-ss", f"{s:.3f}"] + (["-headers", hdr] if hdr else []) + ["-i", f["url"]]
-                  cmd += ["-map", "0:v:0", "-map", ("1:a:0?" if len(fmts) >= 2 else "0:a:0?"),
-                          "-t", f"{e - s:.3f}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
-                          "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", out]
+                  cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-ss", f"{s:.3f}", "-i", src,
+                         "-map", "0:v:0", "-map", "0:a:0?", "-t", f"{e - s:.3f}",
+                         "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p",
+                         "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", out]
                   p = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
-                  if p.returncode == 0 and os.path.exists(out):
+                  if p.returncode == 0 and os.path.exists(out) and os.path.getsize(out) > 1000:
                       status["files"][str(i)] = f"clip-{i}.mp4"
                   else:
-                      status["errors"][str(i)] = "Gagal memotong: " + (p.stderr or "")[-200:]
+                      status["errors"][str(i)] = "Gagal memotong: " + (p.stderr or "klip di luar durasi video")[-200:]
               status["ok"] = bool(status["files"])
               if not status["ok"] and not status["errors"]:
                   status["error"] = "Tidak ada klip yang diproses."

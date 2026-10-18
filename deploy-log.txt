@@ -1,0 +1,49 @@
+waktu: Sun Oct 18 19:05:48 UTC 2026
+branch: main
+status: success
+--- info
+{
+  "success": true,
+  "errors": [],
+  "production_branch": "main",
+  "source": null
+}
+--- produksi
+{
+  "canonical": {
+    "id": "a06d4c81-e70d-496c-b64b-63a1f2435ba3",
+    "url": "https://a06d4c81.clipper-ku.pages.dev",
+    "env": "production",
+    "created": "2026-10-18T19:05:41.334467Z",
+    "status": {
+      "name": "deploy",
+      "started_on": null,
+      "ended_on": "2026-10-18T19:05:42.556854Z",
+      "status": "success"
+    }
+  },
+  "latest": {
+    "id": "a06d4c81-e70d-496c-b64b-63a1f2435ba3",
+    "env": "production",
+    "branch": "main",
+    "created": "2026-10-18T19:05:41.334467Z",
+    "status": {
+      "name": "deploy",
+      "started_on": null,
+      "ended_on": "2026-10-18T19:05:42.556854Z",
+      "status": "success"
+    }
+  },
+  "domains": [
+    "clipper-ku.pages.dev"
+  ]
+}
+<title>Clipper Studio</title>
+--- deploy
+npm warn deprecated rollup-plugin-inject@3.0.2: This package has been deprecated and is no longer maintained. Please use @rollup/plugin-inject.
+npm warn deprecated sourcemap-codec@1.4.8: Please use @jridgewell/sourcemap-codec instead
+Uploading... (1/1)
+✨ Success! Uploaded 0 files (1 already uploaded) (0.66 sec)
+
+🌎 Deploying...
+✨ Deployment complete! Take a peek over at https://a06d4c81.clipper-ku.pages.dev
